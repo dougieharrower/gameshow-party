@@ -1,770 +1,327 @@
-Game State Transitions
+# Game State Transitions
 
+This document defines how the game progresses between states on the **Big Screen (Host)**
+and **Player Phones**, including what triggers each transition and who controls it.
 
+The **server is authoritative at all times**.
 
-This document defines how the game progresses between states on the Big Screen (Host) and Player Phones, including what triggers each transition and who controls it.
+---
 
+## Core Principles
 
+### Server owns:
+- Game state
+- Timing
+- Scoring
 
-The server is authoritative at all times.
+### Clients (big screen + phones):
+- Render state sent by server
+- Send player intent only
+- Phones never advance state on their own
 
+### All transitions are driven by:
+- Server timers
+- Server validation of player actions
+- Host actions (start game / next round)
 
+---
 
-Core Principles
-
-
-
-The server owns:
-
-
-
-Game state
-
-
-
-Timing
-
-
-
-Scoring
-
-
-
-Clients (big screen + phones):
-
-
-
-Render state sent by server
-
-
-
-Send player intent only
-
-
-
-Phones never advance state on their own
-
-
-
-All transitions are driven by:
-
-
-
-Server timers
-
-
-
-Server validation of player actions
-
-
-
-Host action (start game / next round)
-
-
-
-Global State Diagram (High-Level)
+## Global State Diagram (High-Level)
 
 IDLE
+- LOBBY
+- ROUND_1_FASTEST_CORRECT
+- ROUND_2_TRIANGULATE
+- ROUND_3_FINAL
+- GAME_OVER
+  
+---
 
-&nbsp;→ LOBBY
+## 1. Lobby Flow
 
-&nbsp;→ ROUND\_1\_FASTEST\_CORRECT
+### State: `LOBBY_WAITING`
 
-&nbsp;→ ROUND\_2\_TRIANGULATE
+**Big Screen**
+- Shows room code
+- Displays joined players
 
-&nbsp;→ ROUND\_3\_FINAL
+**Phones**
+- Shows “Waiting for game to start”
 
-&nbsp;→ GAME\_OVER
+**Transition**
+- Trigger: Host clicks **Start Game**
+- Server validates minimum players
+- → `ROUND_1_INTRO`
 
+---
 
+## 2. Round 1 – Fastest Correct
 
-1\. Lobby Flow
+### State: `ROUND_1_INTRO`
 
-State: LOBBY\_WAITING
+**Big Screen**
+- “Round 1 – Fastest Correct”
+- Short intro animation
 
+**Phones**
+- “Get ready”
 
+**Transition**
+- Auto-advance after intro timer
+- → `ROUND_1_QUESTION`
 
-Big Screen
+---
 
+### State: `ROUND_1_QUESTION`
 
+**Big Screen**
+- Shows question + A / B / C / D
 
-Shows room code
+**Phones**
+- Show **BUZZ** button (disabled initially)
 
+**Transition**
+- Server opens buzz window
+- → `ROUND_1_BUZZ_OPEN`
 
+---
 
-Displays joined players
+### State: `ROUND_1_BUZZ_OPEN`
 
+**Phones**
+- BUZZ enabled
 
+**Server**
+- Records buzz order using server timestamps
 
-Phones
+**Transitions**
+- On first buzz → that player → `ROUND_1_ANSWER`
+- Other players remain waiting
+- Buzz timeout → `ROUND_1_REVEAL`
 
+---
 
+### State: `ROUND_1_ANSWER`
 
-Show “Waiting for game to start”
+**Phones (buzzed player)**
+- Show A / B / C / D buttons
 
+**Server**
+- Waits for answer or timeout
 
+**Transitions**
+- Correct answer → `ROUND_1_REVEAL`
+- Wrong answer → next buzzed player → `ROUND_1_ANSWER`
+- No valid answers → `ROUND_1_REVEAL`
 
-Transitions
+---
 
+### State: `ROUND_1_REVEAL`
 
+**Big Screen**
+- Reveals correct answer
+- Updates scores
 
-Trigger: Host clicks Start Game
+**Phones**
+- Brief feedback (“Correct” / “Wrong”)
 
+**Transitions**
+- If more questions remain → `ROUND_1_QUESTION`
+- Else → `ROUND_2_INTRO`
 
+---
 
-Server validates minimum players
+## 3. Round 2 – Triangulate
 
+### State: `ROUND_2_INTRO`
 
+**Big Screen**
+- “Round 2 – Triangulate”
 
-→ ROUND\_1\_INTRO
+**Phones**
+- “Place your pin on the map”
 
+**Transition**
+- Auto after intro timer
+- → `ROUND_2_PLACE_PINS`
 
+---
 
-2\. Round 1 – Fastest Correct
+### State: `ROUND_2_PLACE_PINS`
 
-State: ROUND\_1\_INTRO
+**Phones**
+- Map view
+- Players place required number of pins
+- Lock In button
 
+**Server**
+- Tracks per-player pin counts
+- Auto-locks pins when timer expires
 
+**Transitions**
+- All players locked OR timer expires
+- → `ROUND_2_RESOLVE`
 
-Big Screen
+---
 
+### State: `ROUND_2_RESOLVE`
 
+**Server**
+- Builds confidence regions (triangle / circle / point)
+- Calculates scores
 
-“Round 1 – Fastest Correct”
+**Big Screen**
+- Displays regions
+- Reveals target
+- Animates scoring
 
+**Phones**
+- “Waiting for results…”
 
+**Transition**
+- After reveal animation
+- → `ROUND_3_INTRO`
 
-Short intro animation
+---
 
+## 4. Round 3 – Final Podium
 
+### State: `ROUND_3_INTRO`
 
-Phones
+**Big Screen**
+- “Final Round – Podium”
 
+**Phones**
+- “Stay above zero”
 
+**Server**
+- Converts scores → starting podium heights
 
-“Get ready”
+**Transition**
+- Auto
+- → `ROUND_3_QUESTION`
 
+---
 
+### State: `ROUND_3_QUESTION`
 
-Transition
+**Big Screen**
+- Shows question + A / B / C / D
 
+**Phones**
+- Show A / B / C / D
+- Timer visible
 
+**Server**
+- Accepts answers with timestamps
 
-Auto-advance after intro timer
+**Transition**
+- Timer expires OR all answers received
+- → `ROUND_3_RESOLVE`
 
+---
 
+### State: `ROUND_3_RESOLVE`
 
-→ ROUND\_1\_QUESTION
+**Server**
+- Determines:
+  - First correct answer
+  - Rank-based height boost
+  - Height drops for wrong answers
+- Eliminates players at height ≤ 0
 
+**Big Screen**
+- Boost animation
+- Podium drops
+- Elimination collapse
 
+**Phones**
+- Feedback:
+  - “Safe”
+  - “Dropped”
+  - “Eliminated”
 
-State: ROUND\_1\_QUESTION
+**Transitions**
+- If more than 2 players remain → `ROUND_3_QUESTION`
+- If exactly 2 players remain → `ROUND_3_COUNTDOWN`
+- If 1 player remains → `GAME_OVER`
 
+---
 
+### State: `ROUND_3_COUNTDOWN`
 
-Big Screen
+**Server**
+- Starts fixed countdown of final questions (e.g. 5)
 
+**Rules**
+- No eliminations mid-question
+- Heights still change
 
+**Transition**
+- Countdown complete
+- Higher podium wins
+- If tied → `ROUND_3_SUDDEN_DEATH`
 
-Shows question + A/B/C/D
+---
 
+### State: `ROUND_3_SUDDEN_DEATH`
 
+**Big Screen**
+- One final question
 
-Phones
+**Phones**
+- A / B / C / D
 
+**Rule**
+- First correct answer wins
 
+**Transition**
+- → `GAME_OVER`
 
-Show BUZZ button (initially disabled)
+---
 
+## 5. Game Over
 
+### State: `GAME_OVER`
 
-Transition
+**Big Screen**
+- Winner screen
+- “Play again?”
 
+**Phones**
+- Winner / spectator views
 
+**Transitions**
+- Host selects:
+  - Play again → `LOBBY_WAITING`
+  - End session → `IDLE`
 
-Server opens buzz window
+---
 
+## Failure & Edge Handling
 
+### Player Disconnect
+- Player remains in game
+- Inputs ignored
+- Counts as:
+  - No buzz
+  - No answer
+  - No pin (auto-placed)
 
-→ ROUND\_1\_BUZZ\_OPEN
+### AFK Player
+- Auto-lock on timers
+- Natural penalties apply
 
+### Latency
+- Server timestamps all actions
+- Client timestamps are advisory only
 
+---
 
-State: ROUND\_1\_BUZZ\_OPEN
+## Summary
 
-
-
-Phones
-
-
-
-BUZZ enabled
-
-
-
-Server
-
-
-
-Records buzz order (server timestamp)
-
-
-
-First buzzed player transitions to answer state
-
-
-
-Transitions
-
-
-
-On first buzz → that player → ROUND\_1\_ANSWER
-
-
-
-Others remain waiting
-
-
-
-Buzz window timeout → skip question → reveal
-
-
-
-State: ROUND\_1\_ANSWER
-
-
-
-Phones (buzzed player)
-
-
-
-Show A/B/C/D buttons
-
-
-
-Server
-
-
-
-Awaits answer or timeout
-
-
-
-Transitions
-
-
-
-Correct answer → ROUND\_1\_REVEAL
-
-
-
-Wrong answer → next buzzed player → ROUND\_1\_ANSWER
-
-
-
-No valid answers → ROUND\_1\_REVEAL
-
-
-
-State: ROUND\_1\_REVEAL
-
-
-
-Big Screen
-
-
-
-Reveals correct answer
-
-
-
-Updates scores
-
-
-
-Phones
-
-
-
-Brief feedback (“Correct” / “Wrong”)
-
-
-
-Transitions
-
-
-
-If more questions in set → ROUND\_1\_QUESTION
-
-
-
-Else → ROUND\_2\_INTRO
-
-
-
-3\. Round 2 – Triangulate
-
-State: ROUND\_2\_INTRO
-
-
-
-Big Screen
-
-
-
-“Round 2 – Triangulate”
-
-
-
-Phones
-
-
-
-“Place your pin on the map”
-
-
-
-Transition
-
-
-
-Auto after intro timer
-
-
-
-→ ROUND\_2\_PLACE\_PINS
-
-
-
-State: ROUND\_2\_PLACE\_PINS
-
-
-
-Phones
-
-
-
-Map view
-
-
-
-Players place required number of pins
-
-
-
-Lock In button
-
-
-
-Server
-
-
-
-Tracks per-player pin count
-
-
-
-Auto-locks at timer end
-
-
-
-Transitions
-
-
-
-All players locked OR timer expires
-
-
-
-→ ROUND\_2\_RESOLVE
-
-
-
-State: ROUND\_2\_RESOLVE
-
-
-
-Server
-
-
-
-Builds regions (triangle / circle / point)
-
-
-
-Calculates score
-
-
-
-Big Screen
-
-
-
-Shows regions
-
-
-
-Reveals target
-
-
-
-Animates scoring
-
-
-
-Phones
-
-
-
-“Waiting for results…”
-
-
-
-Transition
-
-
-
-After reveal animation
-
-
-
-→ ROUND\_3\_INTRO
-
-
-
-4\. Round 3 – Final Podium
-
-State: ROUND\_3\_INTRO
-
-
-
-Big Screen
-
-
-
-“Final Round – Podium”
-
-
-
-Phones
-
-
-
-“Stay above zero”
-
-
-
-Server
-
-
-
-Converts scores → starting heights
-
-
-
-Transition
-
-
-
-Auto
-
-
-
-→ ROUND\_3\_QUESTION
-
-
-
-State: ROUND\_3\_QUESTION
-
-
-
-Big Screen
-
-
-
-Shows question + A/B/C/D
-
-
-
-Phones
-
-
-
-Show A/B/C/D
-
-
-
-Timer visible
-
-
-
-Server
-
-
-
-Accepts answers with timestamps
-
-
-
-Transition
-
-
-
-Timer expires OR all answers received
-
-
-
-→ ROUND\_3\_RESOLVE
-
-
-
-State: ROUND\_3\_RESOLVE
-
-
-
-Server
-
-
-
-Determines:
-
-
-
-First correct answer
-
-
-
-Rank-based height boost
-
-
-
-Height drops for wrong answers
-
-
-
-Eliminates players at height ≤ 0
-
-
-
-Big Screen
-
-
-
-Boost animation
-
-
-
-Podium drops
-
-
-
-Elimination collapse
-
-
-
-Phones
-
-
-
-Feedback:
-
-
-
-“Safe”
-
-
-
-“Dropped”
-
-
-
-“Eliminated”
-
-
-
-Transitions
-
-
-
-If >2 players remain → ROUND\_3\_QUESTION
-
-
-
-If 2 players remain → ROUND\_3\_COUNTDOWN
-
-
-
-If 1 player remains → GAME\_OVER
-
-
-
-State: ROUND\_3\_COUNTDOWN
-
-
-
-Server
-
-
-
-Starts fixed question countdown (e.g. 5 questions)
-
-
-
-Rules
-
-
-
-No eliminations mid-question
-
-
-
-Heights still change
-
-
-
-Transition
-
-
-
-Countdown complete
-
-
-
-→ winner by height
-
-
-
-If tied → ROUND\_3\_SUDDEN\_DEATH
-
-
-
-State: ROUND\_3\_SUDDEN\_DEATH
-
-
-
-Big Screen
-
-
-
-One final question
-
-
-
-Phones
-
-
-
-A/B/C/D
-
-
-
-Rule
-
-
-
-First correct answer wins
-
-
-
-Transition
-
-
-
-→ GAME\_OVER
-
-
-
-5\. Game Over
-
-State: GAME\_OVER
-
-
-
-Big Screen
-
-
-
-Winner screen
-
-
-
-“Play again?”
-
-
-
-Phones
-
-
-
-Winner / spectator screens
-
-
-
-Transition
-
-
-
-Host selects:
-
-
-
-Play again → LOBBY\_WAITING
-
-
-
-End session → IDLE
-
-
-
-Failure \& Edge Handling
-
-Player Disconnect
-
-
-
-Player remains in game
-
-
-
-Inputs ignored
-
-
-
-Counts as:
-
-
-
-No buzz
-
-
-
-No answer
-
-
-
-No pin (auto-placed)
-
-
-
-AFK Player
-
-
-
-Auto-lock on timers
-
-
-
-Natural penalties apply
-
-
-
-Latency
-
-
-
-Server timestamps all actions
-
-
-
-Client timestamps are advisory only
-
+This state model ensures:
+- Clear server authority
+- Predictable transitions
+- Minimal client complexity
+- Easy extensibility for future rounds
