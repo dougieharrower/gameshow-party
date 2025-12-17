@@ -34,6 +34,25 @@ const SCORE_CORRECT = 200;
 const SCORE_WRONG = -100;
 const SCORE_TIMEOUT = -150;
 
+const AVATARS = [
+  "cat",
+  "goat",
+  "panda",
+  "koala",
+  "monkey",
+  "lion",
+  "bear",
+  "dog",
+  "tiger",
+];
+
+function pickAvatar(room) {
+  const used = new Set(Object.values(room.players).map((p) => p.avatarId));
+  const available = AVATARS.filter((a) => !used.has(a));
+  const pool = available.length ? available : AVATARS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // ----------------------
 // Static + routes
 // ----------------------
@@ -69,7 +88,7 @@ function loadContentOrThrow() {
   const categoriesDoc = readJson(categoriesPath);
   const categories = categoriesDoc.categories || [];
 
-  // Load question files (everything that starts with "questions." and ends with ".json")
+  // Load question files
   const files = fs
     .readdirSync(contentRoot)
     .filter(
@@ -122,7 +141,7 @@ function loadContentOrThrow() {
     }
   }
 
-  // Basic sanity checks (we only enforce categories you care about)
+  // Basic sanity checks
   const mustHave = [
     "general",
     "us_history",
@@ -190,6 +209,7 @@ function getPlayerList(room) {
     displayName: p.displayName,
     score: p.score ?? 0,
     isConnected: !!p.isConnected,
+    avatarId: p.avatarId ?? null,
   }));
 }
 
@@ -236,29 +256,44 @@ function broadcastState(roomCode) {
             // keep old shape for backwards compatibility
             pickOptions: room.r1.pickOptions ?? null,
 
-            // add nice shape for UI
+            // nice shape for UI
             pickOptionsDetailed,
+
+            // NEW: countdown deadlines (epoch ms)
+            pickEndsAt: room.r1.pickEndsAt ?? null,
+            questionEndsAt: room.r1.questionEndsAt ?? null,
           }
         : null,
   });
 }
 
-function broadcastR1Buzz(roomCode) {
+// fastest-finger state snapshot (winner + locked out list)
+function broadcastR1FastestState(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
 
+  const q = room.r1.currentQuestion;
+  const fastest = room.r1.fastest;
+
   const winner =
-    room.r1.buzzWinnerPlayerId && room.players[room.r1.buzzWinnerPlayerId]
+    fastest?.winnerPlayerId && room.players[fastest.winnerPlayerId]
       ? {
-          playerId: room.r1.buzzWinnerPlayerId,
-          displayName: room.players[room.r1.buzzWinnerPlayerId].displayName,
+          playerId: fastest.winnerPlayerId,
+          displayName: room.players[fastest.winnerPlayerId].displayName,
+          choice: fastest.winnerChoice ?? null,
         }
       : null;
 
-  io.to(roomCode).emit("server:r1_buzz_update", {
+  io.to(roomCode).emit("server:r1_fastest_state", {
     roomCode,
-    buzzOpen: room.r1.buzzOpen,
+    questionId: q ? q.id : null,
+    isOpen: room.state === "ROUND_1_QUESTION_OPEN",
     winner,
+    lockedOutPlayerIds: fastest ? Array.from(fastest.lockedOutPlayerIds) : [],
+    answeredPlayerIds: fastest ? Array.from(fastest.answeredPlayerIds) : [],
+
+    // NEW: countdown deadline for the current question
+    endsAt: room.r1.questionEndsAt ?? null,
   });
 }
 
@@ -339,12 +374,27 @@ function getEligibleCategoryOptions(room) {
 // Round 1: block + question flow
 // ----------------------
 function setR1QuestionPresented(roomCode, question) {
+  const room = rooms[roomCode];
+  const endsAt = room?.r1?.questionEndsAt ?? null;
+
   io.to(roomCode).emit("server:r1_question_presented", {
     roomCode,
     questionId: question.id,
     prompt: question.prompt,
     answers: question.answers,
+
+    // NEW: countdown deadline for the question
+    endsAt,
   });
+}
+
+function clearR1QuestionTimer(room) {
+  if (room.r1.fastest?.questionTimer) {
+    clearTimeout(room.r1.fastest.questionTimer);
+    room.r1.fastest.questionTimer = null;
+  }
+  // NEW: clear question deadline
+  room.r1.questionEndsAt = null;
 }
 
 function startR1Block(roomCode, categoryId, blockIndex) {
@@ -353,7 +403,6 @@ function startR1Block(roomCode, categoryId, blockIndex) {
 
   const picked = pickNUnusedQuestions(room, categoryId, QUESTIONS_PER_BLOCK);
   if (!picked) {
-    // This should not happen if eligibility checks are correct
     room.state = "ERROR";
     broadcastState(roomCode);
     io.to(roomCode).emit("server:error", {
@@ -366,6 +415,10 @@ function startR1Block(roomCode, categoryId, blockIndex) {
   room.r1.currentCategoryId = categoryId;
   room.r1.questionsQueue = picked;
   room.r1.currentQuestion = null;
+
+  // NEW: clear deadlines when a block begins
+  room.r1.pickEndsAt = null;
+  room.r1.questionEndsAt = null;
 
   if (categoryId !== "general") {
     room.r1.usedCategoryIds.add(categoryId);
@@ -389,6 +442,10 @@ function startR1CategoryPick(roomCode) {
   room.r1.chooserPlayerId = chooserId;
   room.r1.pickOptions = options;
 
+  // NEW: countdown deadline (epoch ms)
+  room.r1.pickEndsAt = Date.now() + CATEGORY_PICK_TIMEOUT_MS;
+  room.r1.questionEndsAt = null;
+
   broadcastState(roomCode);
 
   io.to(roomCode).emit("server:r1_category_pick", {
@@ -402,14 +459,20 @@ function startR1CategoryPick(roomCode) {
       name: CONTENT.categories.find((c) => c.id === id)?.name || id,
     })),
     timeoutMs: CATEGORY_PICK_TIMEOUT_MS,
+
+    // NEW: deadline for countdown UI
+    endsAt: room.r1.pickEndsAt,
   });
 
-  // Auto-pick if nobody chooses (or chooser is disconnected) after timeout
+  // Auto-pick after timeout
   if (room.r1.pickTimer) clearTimeout(room.r1.pickTimer);
   room.r1.pickTimer = setTimeout(() => {
     const stillRoom = rooms[roomCode];
     if (!stillRoom) return;
     if (stillRoom.state !== "ROUND_1_CATEGORY_PICK") return;
+
+    // clear deadline when pick window closes
+    stillRoom.r1.pickEndsAt = null;
 
     const fallback = options[0] || eligible[0];
     if (!fallback) {
@@ -428,11 +491,19 @@ function startR1NextQuestion(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
 
+  // Clear any previous question timer + deadline
+  clearR1QuestionTimer(room);
+
   const next = room.r1.questionsQueue.shift();
   if (!next) {
     // Block complete -> either pick next category or round end
     if (room.r1.blockIndex >= R1_BLOCKS_TOTAL) {
       room.state = "ROUND_1_COMPLETE";
+
+      // clear deadlines on round end
+      room.r1.pickEndsAt = null;
+      room.r1.questionEndsAt = null;
+
       broadcastState(roomCode);
       io.to(roomCode).emit("server:r1_round_complete", { roomCode });
       return;
@@ -443,87 +514,77 @@ function startR1NextQuestion(roomCode) {
     return;
   }
 
-  // Setup question
+  // Setup question (everyone can answer immediately)
   room.r1.currentQuestion = next;
-  room.r1.buzzOpen = true;
-  room.r1.buzzWinnerPlayerId = null;
-  room.r1.answeringPlayerId = null;
-  room.r1.answered = false;
 
-  if (room.r1.answerTimer) {
-    clearTimeout(room.r1.answerTimer);
-    room.r1.answerTimer = null;
-  }
+  // NEW: question countdown deadline (epoch ms)
+  room.r1.questionEndsAt = Date.now() + next.timeLimitMs;
 
-  room.state = "ROUND_1_BUZZ_OPEN";
+  room.r1.fastest = {
+    winnerPlayerId: null,
+    winnerChoice: null,
+    lockedOutPlayerIds: new Set(),
+    answeredPlayerIds: new Set(),
+    questionTimer: null,
+  };
+
+  // clear pick deadline if we were previously in category pick
+  room.r1.pickEndsAt = null;
+
+  room.state = "ROUND_1_QUESTION_OPEN";
   room.roundId = 1;
 
   broadcastState(roomCode);
-  broadcastR1Buzz(roomCode);
+  broadcastR1FastestState(roomCode);
   setR1QuestionPresented(roomCode, next);
-}
 
-function startR1AnswerPhase(roomCode, playerId) {
-  const room = rooms[roomCode];
-  if (!room) return;
-
-  room.state = "ROUND_1_ANSWER_OPEN";
-  room.r1.buzzOpen = false;
-  room.r1.answeringPlayerId = playerId;
-  room.r1.answered = false;
-
-  broadcastState(roomCode);
-  broadcastR1Buzz(roomCode);
-
-  const q = room.r1.currentQuestion;
-  if (!q) {
-    io.to(roomCode).emit("server:error", { code: "NO_CURRENT_QUESTION" });
-    return;
-  }
-
-  io.to(roomCode).emit("server:r1_answer_open", {
-    roomCode,
-    questionId: q.id,
-    answeringPlayerId: playerId,
-    answerTimeLimitMs: q.timeLimitMs,
-  });
-
-  // Timeout enforcement (server authoritative)
-  if (room.r1.answerTimer) clearTimeout(room.r1.answerTimer);
-  room.r1.answerTimer = setTimeout(() => {
+  // Server-authoritative question timer (if nobody wins in time)
+  room.r1.fastest.questionTimer = setTimeout(() => {
     const stillRoom = rooms[roomCode];
     if (!stillRoom) return;
 
-    if (stillRoom.state !== "ROUND_1_ANSWER_OPEN") return;
-    if (stillRoom.r1.answered) return;
-    if (stillRoom.r1.answeringPlayerId !== playerId) return;
+    if (stillRoom.state !== "ROUND_1_QUESTION_OPEN") return;
 
-    stillRoom.r1.answered = true;
+    const q = stillRoom.r1.currentQuestion;
+    const fastest = stillRoom.r1.fastest;
+    if (!q || !fastest) return;
 
-    const p = stillRoom.players[playerId];
-    if (p) p.score = (p.score ?? 0) + SCORE_TIMEOUT;
+    // If a winner happened right before timer fired, ignore
+    if (fastest.winnerPlayerId) return;
 
-    io.to(roomCode).emit("server:r1_answer_result", {
+    // clear deadline when question closes
+    stillRoom.r1.questionEndsAt = null;
+
+    // Apply timeout penalty to players who never attempted an answer
+    for (const pid of Object.keys(stillRoom.players)) {
+      const p = stillRoom.players[pid];
+      if (!p) continue;
+
+      const attempted = fastest.answeredPlayerIds.has(pid);
+      if (!attempted) {
+        p.score = (p.score ?? 0) + SCORE_TIMEOUT;
+      }
+    }
+
+    io.to(roomCode).emit("server:r1_answer_timeout", {
       roomCode,
-      outcome: "TIMEOUT",
-      answeringPlayerId: playerId,
-      chosen: null,
-      correctChoice: stillRoom.r1.currentQuestion.correct,
-      scoreDelta: SCORE_TIMEOUT,
-      newScore: p ? p.score : null,
+      questionId: q.id,
+      correctChoice: q.correct,
+      scoreDeltaIfNoAttempt: SCORE_TIMEOUT,
     });
 
     broadcastPlayerList(roomCode);
+    broadcastR1FastestState(roomCode); // endsAt will now be null
 
+    // Move on
     setTimeout(() => startR1NextQuestion(roomCode), 900);
-  }, q.timeLimitMs);
+  }, next.timeLimitMs);
 }
 
 // Re-send round context to a specific socket (for rejoin)
 function sendR1SnapshotToSocket(roomCode, room, socket) {
   if (room.roundId !== 1) return;
 
-  // Always send state
   socket.emit("server:state_changed", {
     roomCode,
     state: room.state,
@@ -533,6 +594,10 @@ function sendR1SnapshotToSocket(roomCode, room, socket) {
       currentCategoryId: room.r1.currentCategoryId,
       chooserPlayerId: room.r1.chooserPlayerId ?? null,
       pickOptions: room.r1.pickOptions ?? null,
+
+      // NEW: deadlines
+      pickEndsAt: room.r1.pickEndsAt ?? null,
+      questionEndsAt: room.r1.questionEndsAt ?? null,
     },
   });
 
@@ -543,16 +608,37 @@ function sendR1SnapshotToSocket(roomCode, room, socket) {
       questionId: room.r1.currentQuestion.id,
       prompt: room.r1.currentQuestion.prompt,
       answers: room.r1.currentQuestion.answers,
+
+      // NEW: countdown
+      endsAt: room.r1.questionEndsAt ?? null,
     });
   }
 
-  // If answer phase open, send answer open details (phone UI needs it)
-  if (room.state === "ROUND_1_ANSWER_OPEN" && room.r1.currentQuestion) {
-    socket.emit("server:r1_answer_open", {
+  // If question open, send fastest-state snapshot
+  if (room.state === "ROUND_1_QUESTION_OPEN") {
+    socket.emit("server:r1_fastest_state", {
       roomCode,
-      questionId: room.r1.currentQuestion.id,
-      answeringPlayerId: room.r1.answeringPlayerId,
-      answerTimeLimitMs: room.r1.currentQuestion.timeLimitMs,
+      questionId: room.r1.currentQuestion ? room.r1.currentQuestion.id : null,
+      isOpen: true,
+      winner:
+        room.r1.fastest?.winnerPlayerId &&
+        room.players[room.r1.fastest.winnerPlayerId]
+          ? {
+              playerId: room.r1.fastest.winnerPlayerId,
+              displayName:
+                room.players[room.r1.fastest.winnerPlayerId].displayName,
+              choice: room.r1.fastest.winnerChoice ?? null,
+            }
+          : null,
+      lockedOutPlayerIds: room.r1.fastest
+        ? Array.from(room.r1.fastest.lockedOutPlayerIds)
+        : [],
+      answeredPlayerIds: room.r1.fastest
+        ? Array.from(room.r1.fastest.answeredPlayerIds)
+        : [],
+
+      // NEW: countdown
+      endsAt: room.r1.questionEndsAt ?? null,
     });
   }
 
@@ -569,6 +655,9 @@ function sendR1SnapshotToSocket(roomCode, room, socket) {
         name: CONTENT.categories.find((c) => c.id === id)?.name || id,
       })),
       timeoutMs: CATEGORY_PICK_TIMEOUT_MS,
+
+      // NEW: countdown
+      endsAt: room.r1.pickEndsAt ?? null,
     });
   }
 }
@@ -638,15 +727,16 @@ io.on("connection", (socket) => {
           questionsQueue: [],
           currentQuestion: null,
 
-          buzzOpen: false,
-          buzzWinnerPlayerId: null,
-          answeringPlayerId: null,
-          answered: false,
-          answerTimer: null,
+          // fastest finger state
+          fastest: null,
 
           chooserPlayerId: null,
           pickOptions: null,
           pickTimer: null,
+
+          // NEW: countdown deadlines (epoch ms)
+          pickEndsAt: null,
+          questionEndsAt: null,
         },
       };
 
@@ -705,6 +795,7 @@ io.on("connection", (socket) => {
       isConnected: true,
       lastSeen: Date.now(),
       pruneTimer: null,
+      avatarId: pickAvatar(room),
     };
     room.playerTokens[playerToken] = playerId;
 
@@ -717,6 +808,7 @@ io.on("connection", (socket) => {
         playerId,
         playerToken,
         displayName: name,
+        avatarId: room.players[playerId].avatarId,
         state: room.state,
         roundId: room.roundId,
       });
@@ -783,13 +875,14 @@ io.on("connection", (socket) => {
         playerId: newPlayerId,
         playerToken: token,
         displayName: room.players[newPlayerId].displayName,
+        avatarId: room.players[newPlayerId].avatarId,
         state: room.state,
         roundId: room.roundId,
         players: getPlayerList(room),
       });
     }
 
-    // Send snapshot to this socket so UI can jump to correct state immediately
+    // Send snapshot to this socket
     sendR1SnapshotToSocket(code, room, socket);
 
     broadcastPlayerList(code);
@@ -837,14 +930,12 @@ io.on("connection", (socket) => {
     room.r1.questionsQueue = [];
     room.r1.currentQuestion = null;
 
-    room.r1.buzzOpen = false;
-    room.r1.buzzWinnerPlayerId = null;
-    room.r1.answeringPlayerId = null;
-    room.r1.answered = false;
-    if (room.r1.answerTimer) {
-      clearTimeout(room.r1.answerTimer);
-      room.r1.answerTimer = null;
-    }
+    // Clear deadlines
+    room.r1.pickEndsAt = null;
+    room.r1.questionEndsAt = null;
+
+    // Clear fastest state
+    room.r1.fastest = null;
 
     room.r1.chooserPlayerId = null;
     room.r1.pickOptions = null;
@@ -854,7 +945,7 @@ io.on("connection", (socket) => {
     }
 
     broadcastState(code);
-    broadcastR1Buzz(code);
+    broadcastR1FastestState(code);
 
     // After 2 seconds, start Block 1 (General)
     setTimeout(() => {
@@ -862,58 +953,15 @@ io.on("connection", (socket) => {
       if (!stillRoom) return;
       if (stillRoom.state !== "ROUND_1_INTRO") return;
 
-      // Block 1 = General Knowledge
       startR1Block(code, "general", 1);
     }, 2000);
 
     if (typeof ack === "function") ack({ ok: true });
   });
 
-  // Phone buzz
-  socket.on("phone:r1_buzz", ({ roomCode, playerId } = {}, ack) => {
-    const code = String(roomCode || "")
-      .trim()
-      .toUpperCase();
-    const room = rooms[code];
-    if (!room) {
-      if (typeof ack === "function")
-        ack({ ok: false, reason: "ROOM_NOT_FOUND" });
-      return;
-    }
-
-    const pid = playerId || socket.id;
-
-    if (room.state !== "ROUND_1_BUZZ_OPEN" || !room.r1.buzzOpen) {
-      if (typeof ack === "function")
-        ack({ ok: false, reason: "BUZZ_NOT_OPEN" });
-      return;
-    }
-
-    if (!room.players[pid]) {
-      if (typeof ack === "function")
-        ack({ ok: false, reason: "PLAYER_NOT_IN_ROOM" });
-      return;
-    }
-
-    if (room.r1.buzzWinnerPlayerId) {
-      if (typeof ack === "function")
-        ack({ ok: false, reason: "ALREADY_BUZZED" });
-      return;
-    }
-
-    room.r1.buzzWinnerPlayerId = pid;
-    room.r1.buzzOpen = false;
-
-    broadcastR1Buzz(code);
-
-    if (typeof ack === "function") ack({ ok: true, winnerPlayerId: pid });
-
-    startR1AnswerPhase(code, pid);
-  });
-
-  // Winner answers A/B/C/D
+  // Any phone taps A/B/C/D during ROUND_1_QUESTION_OPEN
   socket.on(
-    "phone:r1_answer_selected",
+    "phone:r1_answer_tap",
     ({ roomCode, playerId, choice } = {}, ack) => {
       const code = String(roomCode || "")
         .trim()
@@ -930,21 +978,15 @@ io.on("connection", (socket) => {
         .trim()
         .toUpperCase();
 
-      if (room.state !== "ROUND_1_ANSWER_OPEN") {
+      if (room.state !== "ROUND_1_QUESTION_OPEN") {
         if (typeof ack === "function")
-          ack({ ok: false, reason: "ANSWER_NOT_OPEN" });
+          ack({ ok: false, reason: "QUESTION_NOT_OPEN" });
         return;
       }
 
-      if (room.r1.answeringPlayerId !== pid) {
+      if (!room.players[pid]) {
         if (typeof ack === "function")
-          ack({ ok: false, reason: "NOT_YOUR_TURN" });
-        return;
-      }
-
-      if (room.r1.answered) {
-        if (typeof ack === "function")
-          ack({ ok: false, reason: "ALREADY_ANSWERED" });
+          ack({ ok: false, reason: "PLAYER_NOT_IN_ROOM" });
         return;
       }
 
@@ -954,41 +996,87 @@ io.on("connection", (socket) => {
         return;
       }
 
-      room.r1.answered = true;
-      if (room.r1.answerTimer) {
-        clearTimeout(room.r1.answerTimer);
-        room.r1.answerTimer = null;
-      }
-
       const q = room.r1.currentQuestion;
-      if (!q) {
+      const fastest = room.r1.fastest;
+
+      if (!q || !fastest) {
         if (typeof ack === "function")
           ack({ ok: false, reason: "NO_CURRENT_QUESTION" });
         return;
       }
 
+      // Winner already decided -> ignore
+      if (fastest.winnerPlayerId) {
+        if (typeof ack === "function")
+          ack({ ok: false, reason: "ALREADY_HAS_WINNER" });
+        return;
+      }
+
+      // Locked out -> ignore
+      if (fastest.lockedOutPlayerIds.has(pid)) {
+        if (typeof ack === "function") ack({ ok: false, reason: "LOCKED_OUT" });
+        return;
+      }
+
+      // Record attempt (prevents timeout penalty)
+      fastest.answeredPlayerIds.add(pid);
+
       const correct = ch === q.correct;
-      const delta = correct ? SCORE_CORRECT : SCORE_WRONG;
+
+      if (correct) {
+        // First correct wins
+        fastest.winnerPlayerId = pid;
+        fastest.winnerChoice = ch;
+
+        // Stop timer + clear deadline
+        clearR1QuestionTimer(room);
+
+        // Score
+        const p = room.players[pid];
+        if (p) p.score = (p.score ?? 0) + SCORE_CORRECT;
+
+        io.to(code).emit("server:r1_answer_winner", {
+          roomCode: code,
+          questionId: q.id,
+          winnerPlayerId: pid,
+          winnerDisplayName: p ? p.displayName : null,
+          chosen: ch,
+          correctChoice: q.correct,
+          scoreDelta: SCORE_CORRECT,
+          newScore: p ? p.score : null,
+        });
+
+        broadcastPlayerList(code);
+        broadcastR1FastestState(code);
+
+        if (typeof ack === "function") ack({ ok: true, correct: true });
+
+        // Next question
+        setTimeout(() => startR1NextQuestion(code), 900);
+        return;
+      }
+
+      // Wrong -> lock out this player (and apply wrong penalty)
+      fastest.lockedOutPlayerIds.add(pid);
 
       const p = room.players[pid];
-      if (p) p.score = (p.score ?? 0) + delta;
+      if (p) p.score = (p.score ?? 0) + SCORE_WRONG;
 
-      io.to(code).emit("server:r1_answer_result", {
+      io.to(code).emit("server:r1_answer_locked_out", {
         roomCode: code,
-        outcome: correct ? "CORRECT" : "WRONG",
+        questionId: q.id,
         answeringPlayerId: pid,
+        answeringDisplayName: p ? p.displayName : null,
         chosen: ch,
-        correctChoice: q.correct,
-        scoreDelta: delta,
+        correctChoice: q.correct, // you may hide this on phones later; host can show it
+        scoreDelta: SCORE_WRONG,
         newScore: p ? p.score : null,
       });
 
       broadcastPlayerList(code);
+      broadcastR1FastestState(code);
 
-      if (typeof ack === "function") ack({ ok: true, correct });
-
-      // Next question
-      setTimeout(() => startR1NextQuestion(code), 900);
+      if (typeof ack === "function") ack({ ok: true, correct: false });
     }
   );
 
@@ -1034,14 +1122,17 @@ io.on("connection", (socket) => {
         room.r1.pickTimer = null;
       }
 
+      // clear pick deadline when chooser picks
+      room.r1.pickEndsAt = null;
+
       if (typeof ack === "function") ack({ ok: true });
 
-      // Start next block (blockIndex increments)
+      // Start next block
       startR1Block(code, pick, room.r1.blockIndex + 1);
     }
   );
 
-  // Host ends game (manual button if you add it later)
+  // Host ends game
   socket.on("host:end_game", ({ roomCode } = {}, ack) => {
     const code = String(roomCode || "")
       .trim()
@@ -1060,8 +1151,10 @@ io.on("connection", (socket) => {
 
     io.to(code).emit("server:error", { code: "ROOM_CLOSED" });
 
-    if (room.r1?.answerTimer) clearTimeout(room.r1.answerTimer);
+    // Clear timers
     if (room.r1?.pickTimer) clearTimeout(room.r1.pickTimer);
+    if (room.r1?.fastest?.questionTimer)
+      clearTimeout(room.r1.fastest.questionTimer);
 
     delete rooms[code];
 
@@ -1077,8 +1170,9 @@ io.on("connection", (socket) => {
         console.log(`Host disconnected; closing room ${code}`);
         io.to(code).emit("server:error", { code: "ROOM_CLOSED" });
 
-        if (room.r1?.answerTimer) clearTimeout(room.r1.answerTimer);
         if (room.r1?.pickTimer) clearTimeout(room.r1.pickTimer);
+        if (room.r1?.fastest?.questionTimer)
+          clearTimeout(room.r1.fastest.questionTimer);
 
         delete rooms[code];
         continue;

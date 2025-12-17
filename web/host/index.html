@@ -13,11 +13,15 @@
         display: flex;
         gap: 24px;
         align-items: flex-start;
+        flex-wrap: wrap;
       }
       .card {
         border: 1px solid #ddd;
         border-radius: 8px;
         padding: 16px;
+        width: 360px;
+      }
+      .wide {
         width: 360px;
       }
       .code {
@@ -46,6 +50,42 @@
       .danger {
         border: 1px solid #d33;
       }
+      .pill {
+        display: inline-block;
+        padding: 4px 8px;
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        font-size: 12px;
+        margin-right: 6px;
+        margin-top: 6px;
+      }
+      .hud {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .kv {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .kv .k {
+        color: #666;
+      }
+      .kv .v {
+        font-weight: 700;
+      }
+      .hr {
+        height: 1px;
+        background: #eee;
+        margin: 12px 0;
+      }
+
+      /* NEW: timers look a bit punchier */
+      .timer {
+        font-weight: 800;
+        letter-spacing: 0.3px;
+      }
     </style>
   </head>
   <body>
@@ -73,13 +113,47 @@
         <div id="status" class="muted spacer"></div>
       </div>
 
-      <!-- PLAYERS -->
+      <!-- ROUND 1 HUD -->
+      <div class="card">
+        <div class="muted">Round 1</div>
+
+        <div class="hud spacer">
+          <div class="kv">
+            <div class="k">Block</div>
+            <div class="v" id="r1Block">—</div>
+          </div>
+          <div class="kv">
+            <div class="k">Category</div>
+            <div class="v" id="r1Category">—</div>
+          </div>
+          <div class="kv">
+            <div class="k">Chooser</div>
+            <div class="v" id="r1Chooser">—</div>
+          </div>
+
+          <!-- NEW: question countdown -->
+          <div class="kv">
+            <div class="k">Question Timer</div>
+            <div class="v timer" id="r1QuestionTimer">—</div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="muted">Category Pick</div>
+        <!-- NEW: category countdown appended here -->
+        <div id="r1PickStatus" class="muted spacer">(not active)</div>
+        <div id="r1PickOptions" class="spacer"></div>
+      </div>
+
+      <!-- PLAYERS / FASTEST -->
       <div class="card">
         <div class="muted">Players</div>
         <ul id="playerList"></ul>
 
-        <div class="muted spacer">Buzz</div>
-        <div id="buzzStatus" class="muted">(not started)</div>
+        <div class="muted spacer">Fastest Finger</div>
+        <div id="fastestStatus" class="muted">(not started)</div>
+        <div id="fastestMeta" class="muted mono"></div>
 
         <div class="muted spacer">Last Result</div>
         <div id="lastResult" class="muted mono">(none)</div>
@@ -98,10 +172,28 @@
       const playerListEl = document.getElementById("playerList");
       const statusEl = document.getElementById("status");
       const stateLabelEl = document.getElementById("stateLabel");
-      const buzzStatusEl = document.getElementById("buzzStatus");
+      const fastestStatusEl = document.getElementById("fastestStatus");
+      const fastestMetaEl = document.getElementById("fastestMeta");
       const lastResultEl = document.getElementById("lastResult");
 
+      const r1BlockEl = document.getElementById("r1Block");
+      const r1CategoryEl = document.getElementById("r1Category");
+      const r1ChooserEl = document.getElementById("r1Chooser");
+      const r1PickStatusEl = document.getElementById("r1PickStatus");
+      const r1PickOptionsEl = document.getElementById("r1PickOptions");
+
+      // NEW: timer UI
+      const r1QuestionTimerEl = document.getElementById("r1QuestionTimer");
+
       let currentRoomCode = null;
+
+      // NEW: countdown deadlines (epoch ms)
+      let pickEndsAt = null;
+      let questionEndsAt = null;
+
+      // NEW: baseline strings for pick status (so the interval can append countdown)
+      let pickStatusBaseText = "(not active)";
+      let pickActive = false;
 
       function setStateLabel(state) {
         stateLabelEl.textContent = state || "UNKNOWN";
@@ -125,9 +217,88 @@
           const li = document.createElement("li");
           const score = p.score ?? 0;
           const conn = p.isConnected === false ? " (offline)" : "";
-          li.textContent = `${p.displayName}${conn} — ${score}`;
+          const avatar = p.avatarId ? `[${p.avatarId}] ` : "";
+          li.textContent = `${avatar}${p.displayName}${conn} — ${score}`;
           playerListEl.appendChild(li);
         });
+      }
+
+      function setR1Hud({
+        blockIndex,
+        totalBlocks,
+        categoryId,
+        categoryName,
+        chooserDisplayName,
+      } = {}) {
+        if (Number.isFinite(blockIndex) && Number.isFinite(totalBlocks)) {
+          r1BlockEl.textContent = `${blockIndex}/${totalBlocks}`;
+        } else {
+          r1BlockEl.textContent = "—";
+        }
+
+        const cat = categoryName || categoryId || "—";
+        r1CategoryEl.textContent = cat;
+
+        r1ChooserEl.textContent = chooserDisplayName || "—";
+      }
+
+      function setPickUIActive({ chooserDisplayName, options } = {}) {
+        pickActive = true;
+
+        pickStatusBaseText = chooserDisplayName
+          ? `Waiting for ${chooserDisplayName} to choose…`
+          : "Waiting for chooser…";
+        r1PickStatusEl.textContent = pickStatusBaseText;
+
+        r1PickOptionsEl.innerHTML = "";
+        (options || []).forEach((opt) => {
+          const span = document.createElement("span");
+          span.className = "pill";
+          span.textContent = opt.name || opt.id || String(opt);
+          r1PickOptionsEl.appendChild(span);
+        });
+
+        if (!options || options.length === 0) {
+          const span = document.createElement("span");
+          span.className = "pill";
+          span.textContent = "(options pending)";
+          r1PickOptionsEl.appendChild(span);
+        }
+      }
+
+      function setPickUIInactive() {
+        pickActive = false;
+        pickEndsAt = null;
+        pickStatusBaseText = "(not active)";
+        r1PickStatusEl.textContent = pickStatusBaseText;
+        r1PickOptionsEl.innerHTML = "";
+      }
+
+      function setFastestStatus({
+        isOpen,
+        winner,
+        lockedOutPlayerIds,
+        answeredPlayerIds,
+      } = {}) {
+        const lockedOutCount = (lockedOutPlayerIds || []).length;
+        const answeredCount = (answeredPlayerIds || []).length;
+
+        if (winner) {
+          fastestStatusEl.textContent = `Winner: ${
+            winner.displayName || winner.playerId
+          } (${winner.choice || "?"})`;
+        } else if (isOpen) {
+          fastestStatusEl.textContent = "Open — first correct tap wins";
+        } else {
+          fastestStatusEl.textContent = "(closed)";
+        }
+
+        fastestMetaEl.textContent = `attempted=${answeredCount}  lockedOut=${lockedOutCount}`;
+      }
+
+      function resetFastestUI() {
+        fastestStatusEl.textContent = "(not started)";
+        fastestMetaEl.textContent = "";
       }
 
       function resetUIToLobby() {
@@ -135,11 +306,67 @@
         roomCodeEl.textContent = "----";
         btnStart.disabled = true;
         btnEnd.disabled = true;
+
+        // NEW: clear countdowns
+        pickEndsAt = null;
+        questionEndsAt = null;
+        r1QuestionTimerEl.textContent = "—";
+
         setStateLabel("LOBBY");
-        buzzStatusEl.textContent = "(not started)";
+        resetFastestUI();
         lastResultEl.textContent = "(none)";
         renderPlayers([]);
+        setR1Hud({});
+        setPickUIInactive();
       }
+
+      // --------------------
+      // NEW: Countdown render loop
+      // --------------------
+      function msLeft(endsAt) {
+        if (!Number.isFinite(endsAt)) return null;
+        return Math.max(0, endsAt - Date.now());
+      }
+
+      function fmtSeconds(ms) {
+        const s = Math.ceil(ms / 1000);
+        return `${s}s`;
+      }
+
+      function tickCountdowns() {
+        // Category pick countdown
+        if (pickActive && Number.isFinite(pickEndsAt)) {
+          const left = msLeft(pickEndsAt);
+          if (left == null) {
+            r1PickStatusEl.textContent = pickStatusBaseText;
+          } else if (left <= 0) {
+            r1PickStatusEl.textContent = `${pickStatusBaseText} (auto-picking…)`;
+          } else {
+            r1PickStatusEl.textContent = `${pickStatusBaseText} (${fmtSeconds(
+              left
+            )})`;
+          }
+        } else {
+          // ensure inactive looks clean
+          if (!pickActive) r1PickStatusEl.textContent = pickStatusBaseText;
+        }
+
+        // Question countdown
+        if (Number.isFinite(questionEndsAt)) {
+          const left = msLeft(questionEndsAt);
+          if (left == null) {
+            r1QuestionTimerEl.textContent = "—";
+          } else if (left <= 0) {
+            r1QuestionTimerEl.textContent = "0s";
+          } else {
+            r1QuestionTimerEl.textContent = fmtSeconds(left);
+          }
+        } else {
+          r1QuestionTimerEl.textContent = "—";
+        }
+      }
+
+      setInterval(tickCountdowns, 100);
 
       // --------------------
       // Refresh warning (kills game)
@@ -157,10 +384,16 @@
       // --------------------
       btnCreate.addEventListener("click", () => {
         statusEl.textContent = "Creating room...";
-        buzzStatusEl.textContent = "(not started)";
+        resetFastestUI();
         lastResultEl.textContent = "(none)";
         btnStart.disabled = true;
         btnEnd.disabled = true;
+        setR1Hud({});
+        setPickUIInactive();
+
+        // NEW: clear timers
+        pickEndsAt = null;
+        questionEndsAt = null;
 
         socket.emit("host:create_room", { maxPlayers: 6 }, (ack) => {
           if (!ack?.ok) {
@@ -196,7 +429,7 @@
       });
 
       // --------------------
-      // End Game (intentional kill)
+      // End Game
       // --------------------
       btnEnd.addEventListener("click", () => {
         if (!currentRoomCode) return;
@@ -224,38 +457,103 @@
         renderPlayers(players);
       });
 
-      socket.on("server:state_changed", ({ state }) => {
+      socket.on("server:state_changed", ({ state, r1 } = {}) => {
         setStateLabel(state);
-        if (state === "ROUND_1_BUZZ_OPEN") {
-          buzzStatusEl.textContent = "Buzz is OPEN...";
-        }
-      });
 
-      socket.on("server:r1_buzz_update", ({ buzzOpen, winner }) => {
-        if (winner) {
-          buzzStatusEl.textContent = `Winner: ${winner.displayName}`;
-        } else if (buzzOpen) {
-          buzzStatusEl.textContent = "Buzz is OPEN...";
+        // HUD updates (safe even if r1 missing)
+        if (r1) {
+          setR1Hud({
+            blockIndex: r1.blockIndex,
+            totalBlocks: 4, // R1_BLOCKS_TOTAL
+            categoryId: r1.currentCategoryId,
+            categoryName: r1.currentCategoryName,
+            chooserDisplayName: r1.chooserDisplayName,
+          });
+
+          // NEW: ingest deadlines from server state snapshot
+          if (Number.isFinite(r1.pickEndsAt)) pickEndsAt = r1.pickEndsAt;
+          else if (r1.pickEndsAt === null) pickEndsAt = null;
+
+          if (Number.isFinite(r1.questionEndsAt))
+            questionEndsAt = r1.questionEndsAt;
+          else if (r1.questionEndsAt === null) questionEndsAt = null;
+        }
+
+        // Fastest Finger state label
+        if (state === "ROUND_1_QUESTION_OPEN") {
+          fastestStatusEl.textContent = "Open — first correct tap wins";
+        } else if (
+          state === "ROUND_1_CATEGORY_PICK" ||
+          state === "ROUND_1_INTRO" ||
+          state === "ROUND_1_COMPLETE" ||
+          state === "LOBBY"
+        ) {
+          // neutral
         } else {
-          buzzStatusEl.textContent = "(buzz closed)";
+          // unknown/other states
+        }
+
+        if (state === "ROUND_1_CATEGORY_PICK" && r1) {
+          setPickUIActive({
+            chooserDisplayName: r1.chooserDisplayName,
+            options: r1.pickOptionsDetailed || [],
+          });
+        } else {
+          setPickUIInactive();
         }
       });
 
+      // Fastest finger snapshot (also carries endsAt in your updated server)
+      socket.on("server:r1_fastest_state", (payload) => {
+        setFastestStatus(payload);
+
+        // NEW: question deadline can come from here too
+        if (Number.isFinite(payload?.endsAt)) questionEndsAt = payload.endsAt;
+        else if (payload?.endsAt === null) questionEndsAt = null;
+      });
+
+      // Question prompt shown (also can carry endsAt)
+      socket.on("server:r1_question_presented", ({ prompt, endsAt }) => {
+        lastResultEl.textContent = `Q: ${prompt}`;
+
+        // NEW: question deadline can come from here too
+        if (Number.isFinite(endsAt)) questionEndsAt = endsAt;
+      });
+
+      // Wrong tap locks out
       socket.on(
-        "server:r1_answer_result",
-        ({ outcome, chosen, correctChoice, scoreDelta }) => {
-          if (outcome === "TIMEOUT") {
-            lastResultEl.textContent = `TIMEOUT (${scoreDelta}) — correct was ${correctChoice}`;
-          } else {
-            lastResultEl.textContent = `${outcome} (${scoreDelta}) — chose ${chosen}, correct ${correctChoice}`;
-          }
+        "server:r1_answer_locked_out",
+        ({ answeringDisplayName, answeringPlayerId, chosen, scoreDelta }) => {
+          const who = answeringDisplayName || answeringPlayerId || "Someone";
+          lastResultEl.textContent = `${who} LOCKED OUT (${scoreDelta}) — chose ${chosen}`;
+        }
+      );
+
+      // First correct winner
+      socket.on(
+        "server:r1_answer_winner",
+        ({ winnerDisplayName, winnerPlayerId, chosen, scoreDelta }) => {
+          const who = winnerDisplayName || winnerPlayerId || "Someone";
+          lastResultEl.textContent = `${who} WINS (${scoreDelta}) — chose ${chosen}`;
+
+          // NEW: winner means question is effectively done; clear timer display
+          questionEndsAt = null;
+        }
+      );
+
+      // No winner in time
+      socket.on(
+        "server:r1_answer_timeout",
+        ({ correctChoice, scoreDeltaIfNoAttempt }) => {
+          lastResultEl.textContent = `TIMEOUT — correct was ${correctChoice} (no-attempt penalty ${scoreDeltaIfNoAttempt})`;
+
+          // NEW: question window closed
+          questionEndsAt = null;
         }
       );
 
       socket.on("server:error", (err) => {
         statusEl.textContent = `Error: ${err?.code || "UNKNOWN"}`;
-
-        // If the room is closed (e.g. server killed it), reset UI.
         if (err?.code === "ROOM_CLOSED") {
           resetUIToLobby();
         }

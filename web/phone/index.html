@@ -33,20 +33,24 @@
       .hidden {
         display: none;
       }
-      .buzz {
-        font-size: 28px;
-        font-weight: 800;
-        letter-spacing: 2px;
-      }
       .grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
       }
       .choice {
-        font-size: 22px;
+        font-size: 18px;
         font-weight: 800;
         padding: 16px;
+        line-height: 1.15;
+        min-height: 86px;
+        white-space: normal;
+        text-align: left;
+      }
+      .choice .letter {
+        display: inline-block;
+        font-weight: 900;
+        margin-right: 8px;
       }
       .msg {
         margin-top: 10px;
@@ -59,6 +63,14 @@
       }
       .small {
         font-size: 13px;
+      }
+      #questionText {
+        white-space: pre-wrap;
+      }
+      /* NEW */
+      .timer {
+        font-weight: 900;
+        letter-spacing: 0.3px;
       }
     </style>
   </head>
@@ -94,30 +106,35 @@
       <div id="pickOptions" class="stack"></div>
 
       <div id="pickMsg" class="muted msg small"></div>
+      <!-- NEW: live countdown -->
+      <div id="pickCountdown" class="muted msg small timer"></div>
     </div>
 
-    <!-- BUZZ -->
-    <div id="buzzCard" class="card hidden">
+    <!-- FASTEST (everyone answers) -->
+    <div id="fastestCard" class="card hidden">
       <div class="muted">Round 1</div>
-      <h2 class="buzz">BUZZ!</h2>
-      <button id="btnBuzz">BUZZ</button>
-      <div id="buzzMsg" class="muted msg"></div>
-    </div>
+      <h2 id="fastestHeader">FASTEST FINGER</h2>
+      <!-- NEW: live countdown -->
+      <div id="fastestCountdown" class="muted msg small timer"></div>
 
-    <!-- ANSWER -->
-    <div id="answerCard" class="card hidden">
-      <div class="muted">Round 1</div>
-      <h2 id="answerHeader">Answer!</h2>
       <div id="questionText" class="muted msg"></div>
 
       <div class="grid msg">
-        <button class="choice" data-choice="A">A</button>
-        <button class="choice" data-choice="B">B</button>
-        <button class="choice" data-choice="C">C</button>
-        <button class="choice" data-choice="D">D</button>
+        <button class="choice" data-choice="A">
+          <span class="letter">A</span><span class="txt" data-txt="A">—</span>
+        </button>
+        <button class="choice" data-choice="B">
+          <span class="letter">B</span><span class="txt" data-txt="B">—</span>
+        </button>
+        <button class="choice" data-choice="C">
+          <span class="letter">C</span><span class="txt" data-txt="C">—</span>
+        </button>
+        <button class="choice" data-choice="D">
+          <span class="letter">D</span><span class="txt" data-txt="D">—</span>
+        </button>
       </div>
 
-      <div id="answerMsg" class="muted msg"></div>
+      <div id="fastestMsg" class="muted msg"></div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -132,13 +149,11 @@
       const joinCard = document.getElementById("joinCard");
       const waitingCard = document.getElementById("waitingCard");
       const pickCard = document.getElementById("pickCard");
-      const buzzCard = document.getElementById("buzzCard");
-      const answerCard = document.getElementById("answerCard");
+      const fastestCard = document.getElementById("fastestCard");
 
       const roomCodeInput = document.getElementById("roomCode");
       const nameInput = document.getElementById("displayName");
       const btnJoin = document.getElementById("btnJoin");
-      const btnBuzz = document.getElementById("btnBuzz");
 
       const errorEl = document.getElementById("error");
       const joinedLabel = document.getElementById("joinedLabel");
@@ -148,35 +163,45 @@
       const pickOptionsEl = document.getElementById("pickOptions");
       const pickMsg = document.getElementById("pickMsg");
 
-      const buzzMsg = document.getElementById("buzzMsg");
+      const fastestHeader = document.getElementById("fastestHeader");
       const questionText = document.getElementById("questionText");
-      const answerHeader = document.getElementById("answerHeader");
-      const answerMsg = document.getElementById("answerMsg");
+      const fastestMsg = document.getElementById("fastestMsg");
+
+      // NEW: countdown els
+      const pickCountdownEl = document.getElementById("pickCountdown");
+      const fastestCountdownEl = document.getElementById("fastestCountdown");
 
       let myRoomCode = null;
       let myPlayerId = null;
       let myPlayerToken = null;
+      let myAvatarId = null;
 
-      // local cache of current question text (server sends prompt + answers)
-      let currentQuestion = null;
-      let answeringPlayerId = null;
+      // current question cache (from server:r1_question_presented)
+      let currentQuestion = null; // { questionId, prompt, answers }
+
+      // fastest snapshot cache (from server:r1_fastest_state)
+      let fastestState = null; // { isOpen, winner, lockedOutPlayerIds, answeredPlayerIds, questionId }
 
       // category pick cache
-      let currentPick = null; // { chooserPlayerId, chooserDisplayName, options: [{id,name}], timeoutMs }
+      let currentPick = null; // { chooserPlayerId, chooserDisplayName, options: [{id,name}], timeoutMs, endsAt? }
       let pickLocked = false;
+
+      // NEW: deadline-based countdowns (epoch ms)
+      let pickEndsAt = null;
+      let questionEndsAt = null;
 
       function setStateLabel(state) {
         stateLabelEl.textContent = state || "UNKNOWN";
       }
 
       function showOnly(el) {
-        [joinCard, waitingCard, pickCard, buzzCard, answerCard].forEach((c) =>
+        [joinCard, waitingCard, pickCard, fastestCard].forEach((c) =>
           c.classList.add("hidden")
         );
         el.classList.remove("hidden");
       }
 
-      function setAnswerButtonsEnabled(enabled) {
+      function setChoiceButtonsEnabled(enabled) {
         document.querySelectorAll(".choice").forEach((btn) => {
           btn.disabled = !enabled;
         });
@@ -192,6 +217,7 @@
         pickOptionsEl.innerHTML = "";
         pickHelp.textContent = "";
         pickMsg.textContent = "";
+        pickCountdownEl.textContent = "";
         pickLocked = false;
       }
 
@@ -203,13 +229,18 @@
         myRoomCode = null;
         myPlayerId = null;
         myPlayerToken = null;
+        myAvatarId = null;
 
-        answeringPlayerId = null;
         currentQuestion = null;
+        fastestState = null;
 
         currentPick = null;
         pickLocked = false;
         clearPickUI();
+
+        pickEndsAt = null;
+        questionEndsAt = null;
+        fastestCountdownEl.textContent = "";
       }
 
       function normalizeOptions(arr) {
@@ -226,12 +257,55 @@
           .filter((o) => o.id);
       }
 
+      // NEW: countdown helpers
+      function msLeft(endsAt) {
+        if (!Number.isFinite(endsAt)) return null;
+        return Math.max(0, endsAt - Date.now());
+      }
+      function fmtSeconds(ms) {
+        return `${Math.ceil(ms / 1000)}s`;
+      }
+
+      function tickCountdowns() {
+        // Category pick countdown (only show while pick card is visible)
+        if (
+          !pickCard.classList.contains("hidden") &&
+          Number.isFinite(pickEndsAt)
+        ) {
+          const left = msLeft(pickEndsAt);
+          if (left == null) pickCountdownEl.textContent = "";
+          else if (left <= 0) pickCountdownEl.textContent = "Auto-picking…";
+          else pickCountdownEl.textContent = `Time left: ${fmtSeconds(left)}`;
+        } else {
+          pickCountdownEl.textContent = "";
+        }
+
+        // Question countdown (only show while fastest card is visible)
+        if (
+          !fastestCard.classList.contains("hidden") &&
+          Number.isFinite(questionEndsAt)
+        ) {
+          const left = msLeft(questionEndsAt);
+          if (left == null) fastestCountdownEl.textContent = "";
+          else if (left <= 0) fastestCountdownEl.textContent = "Time: 0s";
+          else fastestCountdownEl.textContent = `Time: ${fmtSeconds(left)}`;
+        } else {
+          fastestCountdownEl.textContent = "";
+        }
+      }
+
+      setInterval(tickCountdowns, 100);
+
       function renderPickUI() {
         clearPickUI();
         if (!currentPick) return;
 
         const chooserId = currentPick.chooserPlayerId;
-        const isChooser = myPlayerId && chooserId && myPlayerId === chooserId;
+        const isChooser = !!(
+          myPlayerId &&
+          chooserId &&
+          myPlayerId === chooserId
+        );
 
         if (isChooser) {
           pickHelp.textContent =
@@ -270,7 +344,6 @@
                 if (!ack?.ok) {
                   pickLocked = false;
                   pickMsg.textContent = `Nope: ${ack?.reason || "UNKNOWN"}`;
-                  // re-enable if still chooser
                   pickOptionsEl
                     .querySelectorAll("button")
                     .forEach((b) => (b.disabled = false));
@@ -284,13 +357,100 @@
           pickOptionsEl.appendChild(btn);
         });
 
-        if (currentPick.timeoutMs) {
-          pickMsg.textContent = `Auto-pick in ~${Math.ceil(
-            currentPick.timeoutMs / 1000
-          )}s if no selection.`;
+        // If server provides endsAt, prefer it. Else derive from timeoutMs.
+        if (Number.isFinite(currentPick.endsAt)) {
+          pickEndsAt = currentPick.endsAt;
         } else {
-          // no timeout known (snapshot via state), keep it calm
-          if (!pickMsg.textContent) pickMsg.textContent = "";
+          const t = Number(currentPick.timeoutMs);
+          pickEndsAt = Number.isFinite(t) && t > 0 ? Date.now() + t : null;
+        }
+
+        if (
+          Number.isFinite(currentPick.timeoutMs) &&
+          currentPick.timeoutMs > 0
+        ) {
+          pickMsg.textContent = "Choose quickly (auto-pick when timer hits 0).";
+        }
+      }
+
+      function renderAnswerButtonsFromQuestion(q) {
+        const letters = ["A", "B", "C", "D"];
+        let answers = [];
+
+        if (Array.isArray(q?.answers)) {
+          answers = q.answers;
+        } else if (q?.answers && typeof q.answers === "object") {
+          answers = [
+            q.answers.A ?? q.answers.a,
+            q.answers.B ?? q.answers.b,
+            q.answers.C ?? q.answers.c,
+            q.answers.D ?? q.answers.d,
+          ];
+        }
+
+        letters.forEach((L, i) => {
+          const span = document.querySelector(`[data-txt="${L}"]`);
+          if (!span) return;
+          span.textContent =
+            answers[i] != null && answers[i] !== "" ? String(answers[i]) : "—";
+        });
+      }
+
+      function formatPromptOnly(q) {
+        return q?.prompt ? String(q.prompt) : "(question loading…)";
+      }
+
+      function isMeLockedOut() {
+        if (!fastestState || !myPlayerId) return false;
+        const arr = fastestState.lockedOutPlayerIds || [];
+        return arr.includes(myPlayerId);
+      }
+
+      function hasWinner() {
+        return !!(fastestState && fastestState.winner);
+      }
+
+      function syncFastestUI() {
+        if (fastestCard.classList.contains("hidden")) return;
+
+        if (currentQuestion) {
+          questionText.textContent = formatPromptOnly(currentQuestion);
+          renderAnswerButtonsFromQuestion(currentQuestion);
+        } else {
+          questionText.textContent = "(question loading…)";
+        }
+
+        if (!fastestState) {
+          fastestHeader.textContent = "FASTEST FINGER";
+          fastestMsg.textContent = "";
+          setChoiceButtonsEnabled(true);
+          return;
+        }
+
+        if (fastestState.winner) {
+          const w = fastestState.winner;
+          fastestHeader.textContent = "CLOSED";
+          fastestMsg.textContent = `Winner: ${w.displayName || w.playerId} (${
+            w.choice || "?"
+          })`;
+          setChoiceButtonsEnabled(false);
+          return;
+        }
+
+        if (!fastestState.isOpen) {
+          fastestHeader.textContent = "CLOSED";
+          fastestMsg.textContent = "";
+          setChoiceButtonsEnabled(false);
+          return;
+        }
+
+        fastestHeader.textContent = "FASTEST FINGER";
+        if (isMeLockedOut()) {
+          fastestMsg.textContent = "Locked out (wrong answer).";
+          setChoiceButtonsEnabled(false);
+        } else {
+          fastestMsg.textContent = "Tap A / B / C / D — first correct wins.";
+          setChoiceButtonsEnabled(true);
         }
       }
 
@@ -312,11 +472,14 @@
           myRoomCode = ack.roomCode;
           myPlayerId = ack.playerId;
           myPlayerToken = ack.playerToken;
+          myAvatarId = ack.avatarId ?? null;
 
           saveSession(ack.roomCode, ack.displayName, ack.playerToken);
 
           showOnly(waitingCard);
-          joinedLabel.textContent = `Room ${ack.roomCode} • Hi ${ack.displayName}!`;
+          joinedLabel.textContent = `Room ${ack.roomCode} • Hi ${
+            ack.displayName
+          }!${myAvatarId ? " [" + myAvatarId + "]" : ""}`;
           setStateLabel(ack.state || "LOBBY");
         });
       });
@@ -352,23 +515,21 @@
             myRoomCode = ack.roomCode;
             myPlayerId = ack.playerId;
             myPlayerToken = ack.playerToken;
+            myAvatarId = ack.avatarId ?? null;
 
             saveSession(ack.roomCode, ack.displayName, ack.playerToken);
 
             showOnly(waitingCard);
-            joinedLabel.textContent = `Room ${ack.roomCode} • Hi ${ack.displayName}!`;
+            joinedLabel.textContent = `Room ${ack.roomCode} • Hi ${
+              ack.displayName
+            }!${myAvatarId ? " [" + myAvatarId + "]" : ""}`;
             setStateLabel(ack.state || "UNKNOWN");
 
-            // We'll also receive snapshot events, but this helps immediately
             if (ack.state === "ROUND_1_CATEGORY_PICK") {
               showOnly(pickCard);
-              // state snapshot will fill options
-            } else if (ack.state === "ROUND_1_BUZZ_OPEN") {
-              showOnly(buzzCard);
-              btnBuzz.disabled = false;
-              buzzMsg.textContent = "";
-            } else if (ack.state === "ROUND_1_ANSWER_OPEN") {
-              joinedLabel.textContent = "Round in progress…";
+            } else if (ack.state === "ROUND_1_QUESTION_OPEN") {
+              showOnly(fastestCard);
+              syncFastestUI();
             } else if (ack.state === "ROUND_1_INTRO") {
               joinedLabel.textContent = "Round 1 starting…";
             }
@@ -377,23 +538,57 @@
       }
 
       // --------------------
-      // Server sends question text
+      // Question presented (prompt + answers)
       // --------------------
-      socket.on("server:r1_question_presented", ({ prompt, answers }) => {
-        currentQuestion = { prompt, answers };
+      socket.on("server:r1_question_presented", (payload) => {
+        const { questionId, prompt, answers } = payload || {};
+        currentQuestion = { questionId, prompt, answers };
+
+        showOnly(fastestCard);
+
+        // If server provides endsAt, use it; else leave questionEndsAt alone (state may bring it)
+        if (Number.isFinite(payload?.endsAt)) questionEndsAt = payload.endsAt;
+
+        if (!fastestState || fastestState.questionId !== questionId) {
+          fastestState = {
+            questionId,
+            isOpen: true,
+            winner: null,
+            lockedOutPlayerIds: [],
+            answeredPlayerIds: [],
+          };
+        }
+
+        questionText.textContent = formatPromptOnly(currentQuestion);
+        renderAnswerButtonsFromQuestion(currentQuestion);
+        syncFastestUI();
       });
 
       // --------------------
-      // Category pick event (best: includes names + timeout)
+      // Fastest snapshot state (winner / locked out list)
+      // --------------------
+      socket.on("server:r1_fastest_state", (payload) => {
+        fastestState = payload || null;
+
+        if (payload?.isOpen) showOnly(fastestCard);
+
+        // If server provides endsAt, use it
+        if (Number.isFinite(payload?.endsAt)) questionEndsAt = payload.endsAt;
+        else if (payload?.endsAt === null) questionEndsAt = null;
+
+        syncFastestUI();
+      });
+
+      // --------------------
+      // Category pick event
       // --------------------
       socket.on("server:r1_category_pick", (payload) => {
-        if (!myRoomCode) return;
-
         currentPick = {
           chooserPlayerId: payload?.chooserPlayerId ?? null,
-          chooserDisplayName: payload?.chooserDisplayName ?? null, // (optional)
+          chooserDisplayName: payload?.chooserDisplayName ?? null,
           options: payload?.options || [],
           timeoutMs: payload?.timeoutMs || null,
+          endsAt: payload?.endsAt ?? null, // NEW (optional)
         };
 
         showOnly(pickCard);
@@ -401,15 +596,25 @@
       });
 
       // --------------------
-      // State changes (now includes r1.currentCategoryName, chooserDisplayName, pickOptionsDetailed)
+      // State changes
       // --------------------
-      socket.on("server:state_changed", ({ state, r1 }) => {
+      socket.on("server:state_changed", ({ state, r1 } = {}) => {
         setStateLabel(state);
 
-        if (!myRoomCode) return;
+        const hasSession = !!(myRoomCode || localStorage.getItem(LS_ROOM));
+        if (!hasSession) return;
+
+        // NEW: accept deadlines from state snapshot if you include them server-side
+        if (r1) {
+          if (Number.isFinite(r1.pickEndsAt)) pickEndsAt = r1.pickEndsAt;
+          else if (r1.pickEndsAt === null) pickEndsAt = null;
+
+          if (Number.isFinite(r1.questionEndsAt))
+            questionEndsAt = r1.questionEndsAt;
+          else if (r1.questionEndsAt === null) questionEndsAt = null;
+        }
 
         if (state === "ROUND_1_CATEGORY_PICK") {
-          // Prefer the detailed options if present
           const detailed = r1?.pickOptionsDetailed;
           const fallback = r1?.pickOptions;
 
@@ -417,7 +622,10 @@
             chooserPlayerId: r1?.chooserPlayerId ?? null,
             chooserDisplayName: r1?.chooserDisplayName ?? null,
             options: detailed && detailed.length ? detailed : fallback || [],
-            timeoutMs: currentPick?.timeoutMs || null, // might be set by server:r1_category_pick
+            timeoutMs: currentPick?.timeoutMs || null,
+            endsAt: Number.isFinite(r1?.pickEndsAt)
+              ? r1.pickEndsAt
+              : currentPick?.endsAt ?? null,
           };
 
           showOnly(pickCard);
@@ -425,132 +633,144 @@
           return;
         }
 
-        if (state === "ROUND_1_BUZZ_OPEN") {
-          // leaving pick
-          currentPick = null;
-          clearPickUI();
+        if (state === "ROUND_1_QUESTION_OPEN") {
+          showOnly(fastestCard);
 
-          showOnly(buzzCard);
-          btnBuzz.disabled = false;
-          buzzMsg.textContent = "";
+          // Fallback: if server doesn't send endsAt yet, and we have a question,
+          // derive from the question's timeLimit if you decide to include it later.
+          // (Best solution: server sends endsAt.)
+          syncFastestUI();
           return;
         }
 
-        if (state === "ROUND_1_ANSWER_OPEN") {
-          // UI switch is handled in server:r1_answer_open
-          return;
-        }
-
-        // Default fallback
+        // leaving pick/question screens
         currentPick = null;
         clearPickUI();
+        pickEndsAt = null;
+        questionEndsAt = null;
+
+        if (state === "ROUND_1_INTRO") {
+          showOnly(waitingCard);
+          joinedLabel.textContent = "Round 1 starting…";
+          return;
+        }
+        if (state === "ROUND_1_COMPLETE") {
+          showOnly(waitingCard);
+          joinedLabel.textContent = "Round 1 complete!";
+          return;
+        }
 
         showOnly(waitingCard);
-        if (state === "ROUND_1_INTRO")
-          joinedLabel.textContent = "Round 1 starting…";
-        if (state === "ROUND_1_COMPLETE")
-          joinedLabel.textContent = "Round 1 complete!";
       });
 
       // --------------------
-      // Buzz
-      // --------------------
-      btnBuzz.addEventListener("click", () => {
-        btnBuzz.disabled = true;
-        buzzMsg.textContent = "Buzz sent…";
-
-        socket.emit(
-          "phone:r1_buzz",
-          { roomCode: myRoomCode, playerId: myPlayerId },
-          (ack) => {
-            if (!ack?.ok) {
-              buzzMsg.textContent = `Nope: ${ack?.reason || "UNKNOWN"}`;
-              return;
-            }
-            buzzMsg.textContent = "You buzzed first!";
-          }
-        );
-      });
-
-      // --------------------
-      // Answer phase begins
+      // Wrong tap -> locked out
       // --------------------
       socket.on(
-        "server:r1_answer_open",
-        ({ answeringPlayerId: pid, answerTimeLimitMs }) => {
-          answeringPlayerId = pid;
+        "server:r1_answer_locked_out",
+        ({ questionId, answeringPlayerId, chosen, scoreDelta }) => {
+          if (!myPlayerId) return;
+          if (answeringPlayerId !== myPlayerId) return;
 
-          const isMe = myPlayerId && pid === myPlayerId;
+          if (
+            questionId &&
+            currentQuestion?.questionId &&
+            questionId !== currentQuestion.questionId
+          )
+            return;
 
-          if (!currentQuestion) {
-            currentQuestion = { prompt: "(question loading…)", answers: null };
-          }
-
-          if (isMe) {
-            showOnly(answerCard);
-            answerHeader.textContent = `Answer! (${Math.ceil(
-              answerTimeLimitMs / 1000
-            )}s)`;
-            questionText.textContent = currentQuestion.prompt || "";
-            answerMsg.textContent = "Pick A / B / C / D";
-            setAnswerButtonsEnabled(true);
-          } else {
-            showOnly(waitingCard);
-            joinedLabel.textContent = "Someone is answering…";
-          }
+          fastestMsg.textContent = `Wrong (${scoreDelta}). Locked out. You chose ${chosen}.`;
+          setChoiceButtonsEnabled(false);
         }
       );
 
-      // click handlers for A/B/C/D
+      // --------------------
+      // Winner declared
+      // --------------------
+      socket.on(
+        "server:r1_answer_winner",
+        ({
+          questionId,
+          winnerPlayerId,
+          winnerDisplayName,
+          chosen,
+          scoreDelta,
+        }) => {
+          if (
+            questionId &&
+            currentQuestion?.questionId &&
+            questionId !== currentQuestion.questionId
+          )
+            return;
+
+          showOnly(fastestCard);
+          fastestHeader.textContent = "CLOSED";
+
+          const who = winnerDisplayName || winnerPlayerId || "Someone";
+          fastestMsg.textContent = `Winner: ${who} (${chosen}) (+${scoreDelta})`;
+          setChoiceButtonsEnabled(false);
+
+          questionEndsAt = null;
+        }
+      );
+
+      // --------------------
+      // Timeout (no winner)
+      // --------------------
+      socket.on(
+        "server:r1_answer_timeout",
+        ({ questionId, correctChoice, scoreDeltaIfNoAttempt }) => {
+          if (
+            questionId &&
+            currentQuestion?.questionId &&
+            questionId !== currentQuestion.questionId
+          )
+            return;
+
+          showOnly(fastestCard);
+          fastestHeader.textContent = "TIME";
+          fastestMsg.textContent = `Time! Correct was ${correctChoice}. (No-attempt penalty ${scoreDeltaIfNoAttempt})`;
+          setChoiceButtonsEnabled(false);
+
+          questionEndsAt = null;
+        }
+      );
+
+      // --------------------
+      // Tapping an answer (Option 2)
+      // --------------------
       document.querySelectorAll(".choice").forEach((btn) => {
         btn.addEventListener("click", () => {
           const choice = btn.getAttribute("data-choice");
           if (!choice) return;
 
-          setAnswerButtonsEnabled(false);
-          answerMsg.textContent = "Answer sent…";
+          if (hasWinner()) return;
+          if (isMeLockedOut()) return;
+
+          setChoiceButtonsEnabled(false);
+          fastestMsg.textContent = "Sent…";
 
           socket.emit(
-            "phone:r1_answer_selected",
+            "phone:r1_answer_tap",
             { roomCode: myRoomCode, playerId: myPlayerId, choice },
             (ack) => {
               if (!ack?.ok) {
-                answerMsg.textContent = `Nope: ${ack?.reason || "UNKNOWN"}`;
-                return;
+                fastestMsg.textContent = `Nope: ${ack?.reason || "UNKNOWN"}`;
+
+                if (
+                  ack?.reason === "LOCKED_OUT" ||
+                  ack?.reason === "ALREADY_HAS_WINNER" ||
+                  ack?.reason === "QUESTION_NOT_OPEN"
+                ) {
+                  setChoiceButtonsEnabled(false);
+                } else {
+                  setChoiceButtonsEnabled(true);
+                }
               }
             }
           );
         });
       });
-
-      // --------------------
-      // Answer result / reveal
-      // --------------------
-      socket.on(
-        "server:r1_answer_result",
-        ({ outcome, chosen, correctChoice, scoreDelta }) => {
-          if (!myRoomCode) return;
-
-          const isMe = answeringPlayerId && myPlayerId === answeringPlayerId;
-
-          if (isMe) {
-            showOnly(answerCard);
-            setAnswerButtonsEnabled(false);
-
-            if (outcome === "TIMEOUT") {
-              answerMsg.textContent = `TIMEOUT — penalty ${scoreDelta}`;
-            } else {
-              const ok = outcome === "CORRECT";
-              answerMsg.textContent = `${
-                ok ? "CORRECT" : "WRONG"
-              } — you chose ${chosen}, correct is ${correctChoice} (${scoreDelta})`;
-            }
-          } else {
-            showOnly(waitingCard);
-            joinedLabel.textContent = "Next question…";
-          }
-        }
-      );
 
       // --------------------
       // Room closed
