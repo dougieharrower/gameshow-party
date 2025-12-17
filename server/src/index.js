@@ -1,3 +1,4 @@
+// server/src/index.js
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -45,6 +46,32 @@ const AVATARS = [
   "dog",
   "tiger",
 ];
+
+// ----------------------
+// Final Podium tuning (v0.1)
+// ----------------------
+const FINAL_INTRO_MS = 1500;
+const FINAL_REVEAL_MS = 1200;
+
+// How fast podiums drop while waiting for answers
+// (height units per second; height is 0..1)
+//
+// Updated: slowed so "minimum 30 seconds worth of bar" is possible.
+const FINAL_FALL_RATE_PER_SEC = 0.02;
+
+// Minimum survival time from starting height (even if player has 0 points)
+const FINAL_MIN_SURVIVE_SEC = 30;
+
+// Penalties/boosts applied on reveal
+const FINAL_WRONG_DROP = 0.12; // instant drop for wrong
+const FINAL_NOANSWER_DROP = 0.14; // instant drop for no answer
+const FINAL_FIRST_CORRECT_BOOST_BASE = 0.1; // base boost for first correct
+const FINAL_FIRST_CORRECT_ELASTICITY = 0.18; // extra boost scaled by "how low you are"
+
+// Starting podium heights are derived from scores and clamped
+const FINAL_MIN_START_HEIGHT = 0.35;
+const FINAL_MAX_START_HEIGHT = 0.85;
+
 // ----------------------
 // Game options (v0.1)
 // ----------------------
@@ -64,6 +91,71 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
+// Score helper: NEVER allow points to go below 0
+function addScoreClamped(player, delta) {
+  const next = (player?.score ?? 0) + (delta ?? 0);
+  player.score = Math.max(0, next);
+}
+
+// Normalize answers into ["A","B","C","D"] strings (or "—")
+function normalizeAnswers4(raw) {
+  const out = ["—", "—", "—", "—"];
+  if (!raw) return out;
+
+  // Object map {A:"",B:"",C:"",D:""} (or lowercase)
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    out[0] = raw.A ?? raw.a ?? out[0];
+    out[1] = raw.B ?? raw.b ?? out[1];
+    out[2] = raw.C ?? raw.c ?? out[2];
+    out[3] = raw.D ?? raw.d ?? out[3];
+    return out.map((v) =>
+      v == null || String(v).trim() === "" ? "—" : String(v)
+    );
+  }
+
+  // Array of strings ["", "", "", ""]
+  if (Array.isArray(raw) && (raw.length === 0 || typeof raw[0] === "string")) {
+    for (let i = 0; i < 4; i++) {
+      const v = raw[i];
+      out[i] = v == null || String(v).trim() === "" ? "—" : String(v);
+    }
+    return out;
+  }
+
+  // Array of objects: [{label:"A", text:"..."}, ...] OR [{text:"..."}, ...]
+  if (Array.isArray(raw) && raw[0] && typeof raw[0] === "object") {
+    const byLetter = {};
+    const unlabeled = [];
+
+    for (const item of raw) {
+      const L = String(item?.label || item?.letter || "")
+        .trim()
+        .toUpperCase();
+      const txt = item?.text ?? item?.value ?? item?.answer ?? "";
+      if (["A", "B", "C", "D"].includes(L)) byLetter[L] = txt;
+      else unlabeled.push(txt);
+    }
+
+    if (Object.keys(byLetter).length) {
+      out[0] = byLetter.A ?? out[0];
+      out[1] = byLetter.B ?? out[1];
+      out[2] = byLetter.C ?? out[2];
+      out[3] = byLetter.D ?? out[3];
+    } else {
+      for (let i = 0; i < 4; i++) {
+        const v = unlabeled[i];
+        if (v != null && String(v).trim() !== "") out[i] = String(v);
+      }
+    }
+
+    return out.map((v) =>
+      v == null || String(v).trim() === "" ? "—" : String(v)
+    );
+  }
+
+  return out;
+}
+
 function sanitizeOptions(room, incoming = {}) {
   const next = { ...room.options };
 
@@ -81,8 +173,6 @@ function sanitizeOptions(room, incoming = {}) {
   }
 
   // Paid-only later:
-  // - if you implement paid, validate incoming.selectedMiddleGames ∈ available
-  // - for now ignore any client-sent selectedMiddleGames
   next.selectedMiddleGames = null;
 
   return next;
@@ -96,7 +186,6 @@ function broadcastOptions(roomCode) {
     roomCode,
     gameStatus: room.gameStatus,
     options: room.options,
-    // helpful for UI gating (shows why middleCount is capped)
     availableMiddleGames: getAvailableMiddleGamesForRoom(room),
   });
 }
@@ -196,7 +285,7 @@ function loadContentOrThrow() {
     }
   }
 
-  // Basic sanity checks
+  // Basic sanity checks for R1 categories only
   const mustHave = [
     "general",
     "us_history",
@@ -224,12 +313,60 @@ function loadContentOrThrow() {
   return { categories, questionsByCategoryId, questionIndex };
 }
 
+// Final round content (separate file so we don't reuse R1)
+function loadFinalQuestionsOrThrow() {
+  const fp = path.join(contentRoot, "questions.final_podium.v1.json");
+  if (!fs.existsSync(fp)) {
+    throw new Error(
+      `Missing ${fp}. Create it with an array of {id, categoryId:'final_podium', prompt, answers, correct, timeLimitMs?}`
+    );
+  }
+
+  const arr = readJson(fp);
+  if (!Array.isArray(arr))
+    throw new Error(`Expected array in questions.final_podium.v1.json`);
+
+  const questions = [];
+  const index = Object.create(null);
+
+  for (const q of arr) {
+    if (!q?.id || !q?.prompt || !q?.answers || !q?.correct) {
+      throw new Error(`Invalid final question: ${JSON.stringify(q)}`);
+    }
+    const id = String(q.id);
+    if (index[id]) throw new Error(`Duplicate final question id: ${id}`);
+
+    const normalized = {
+      id,
+      categoryId: "final_podium",
+      prompt: String(q.prompt),
+      answers: q.answers,
+      correct: String(q.correct).toUpperCase(),
+      timeLimitMs: Number.isFinite(q.timeLimitMs) ? q.timeLimitMs : 5000,
+    };
+
+    index[id] = normalized;
+    questions.push(normalized);
+  }
+
+  if (questions.length < 10) {
+    console.warn(
+      `Warning: questions.final_podium has only ${questions.length} questions. You'll want more for testing.`
+    );
+  }
+
+  return { questions, index };
+}
+
 const CONTENT = loadContentOrThrow();
+const FINAL_CONTENT = loadFinalQuestionsOrThrow();
+
 console.log(
   `Loaded content: ${
     Object.keys(CONTENT.questionsByCategoryId).length
   } categories with questions.`
 );
+console.log(`Loaded final podium questions: ${FINAL_CONTENT.questions.length}`);
 
 // ----------------------
 // In-memory rooms store
@@ -294,6 +431,22 @@ function broadcastState(roomCode) {
     name: catName(id),
   }));
 
+  // Final snapshot (host/phone can choose to use it)
+  const finalSnapshot =
+    room.roundId === 99
+      ? {
+          questionId: room.final?.currentQuestion?.id ?? null,
+          prompt: room.final?.currentQuestion?.prompt ?? null,
+          // DO NOT send correct answer here (phones shouldn't get it early)
+          answers: room.final?.currentQuestion?.answers ?? null,
+          endsAt: room.final?.questionEndsAt ?? null,
+          alivePlayerIds: room.final?.alivePlayerIds ?? [],
+          heights: room.final?.heights ?? {},
+          answered: room.final?.answered ?? {},
+          phase: room.final?.phase ?? null,
+        }
+      : null;
+
   io.to(roomCode).emit("server:state_changed", {
     roomCode,
     gameStatus: room.gameStatus,
@@ -310,17 +463,14 @@ function broadcastState(roomCode) {
             chooserPlayerId: room.r1.chooserPlayerId ?? null,
             chooserDisplayName,
 
-            // keep old shape for backwards compatibility
             pickOptions: room.r1.pickOptions ?? null,
-
-            // nice shape for UI
             pickOptionsDetailed,
 
-            // NEW: countdown deadlines (epoch ms)
             pickEndsAt: room.r1.pickEndsAt ?? null,
             questionEndsAt: room.r1.questionEndsAt ?? null,
           }
         : null,
+    final: finalSnapshot,
   });
 }
 
@@ -348,8 +498,6 @@ function broadcastR1FastestState(roomCode) {
     winner,
     lockedOutPlayerIds: fastest ? Array.from(fastest.lockedOutPlayerIds) : [],
     answeredPlayerIds: fastest ? Array.from(fastest.answeredPlayerIds) : [],
-
-    // NEW: countdown deadline for the current question
     endsAt: room.r1.questionEndsAt ?? null,
   });
 }
@@ -393,12 +541,10 @@ function getLastPlaceChooser(room) {
   const tied = players.filter((p) => (p.score ?? 0) === minScore);
   if (tied.length === 1) return tied[0].playerId;
 
-  // tie at bottom -> random among tied
   return pickRandom(tied).playerId;
 }
 
 function getEligibleCategoryOptions(room) {
-  // Exclude general for pick rounds, and exclude categories already used
   const all = [
     "us_history",
     "geography",
@@ -438,9 +584,8 @@ function setR1QuestionPresented(roomCode, question) {
     roomCode,
     questionId: question.id,
     prompt: question.prompt,
-    answers: question.answers,
-
-    // NEW: countdown deadline for the question
+    // Upgrade: always send a predictable 4-answer array to clients
+    answers: normalizeAnswers4(question.answers),
     endsAt,
   });
 }
@@ -450,7 +595,6 @@ function clearR1QuestionTimer(room) {
     clearTimeout(room.r1.fastest.questionTimer);
     room.r1.fastest.questionTimer = null;
   }
-  // NEW: clear question deadline
   room.r1.questionEndsAt = null;
 }
 
@@ -473,7 +617,6 @@ function startR1Block(roomCode, categoryId, blockIndex) {
   room.r1.questionsQueue = picked;
   room.r1.currentQuestion = null;
 
-  // NEW: clear deadlines when a block begins
   room.r1.pickEndsAt = null;
   room.r1.questionEndsAt = null;
 
@@ -481,7 +624,6 @@ function startR1Block(roomCode, categoryId, blockIndex) {
     room.r1.usedCategoryIds.add(categoryId);
   }
 
-  // Kick off first question
   startR1NextQuestion(roomCode);
 }
 
@@ -499,7 +641,6 @@ function startR1CategoryPick(roomCode) {
   room.r1.chooserPlayerId = chooserId;
   room.r1.pickOptions = options;
 
-  // NEW: countdown deadline (epoch ms)
   room.r1.pickEndsAt = Date.now() + CATEGORY_PICK_TIMEOUT_MS;
   room.r1.questionEndsAt = null;
 
@@ -516,19 +657,15 @@ function startR1CategoryPick(roomCode) {
       name: CONTENT.categories.find((c) => c.id === id)?.name || id,
     })),
     timeoutMs: CATEGORY_PICK_TIMEOUT_MS,
-
-    // NEW: deadline for countdown UI
     endsAt: room.r1.pickEndsAt,
   });
 
-  // Auto-pick after timeout
   if (room.r1.pickTimer) clearTimeout(room.r1.pickTimer);
   room.r1.pickTimer = setTimeout(() => {
     const stillRoom = rooms[roomCode];
     if (!stillRoom) return;
     if (stillRoom.state !== "ROUND_1_CATEGORY_PICK") return;
 
-    // clear deadline when pick window closes
     stillRoom.r1.pickEndsAt = null;
 
     const fallback = options[0] || eligible[0];
@@ -548,33 +685,29 @@ function startR1NextQuestion(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
 
-  // Clear any previous question timer + deadline
   clearR1QuestionTimer(room);
 
   const next = room.r1.questionsQueue.shift();
   if (!next) {
-    // Block complete -> either pick next category or round end
     if (room.r1.blockIndex >= R1_BLOCKS_TOTAL) {
       room.state = "ROUND_1_COMPLETE";
 
-      // clear deadlines on round end
       room.r1.pickEndsAt = null;
       room.r1.questionEndsAt = null;
 
       broadcastState(roomCode);
       io.to(roomCode).emit("server:r1_round_complete", { roomCode });
+
+      // NEW: transition to Final (since middle rounds = 0 currently)
+      setTimeout(() => startFinalIntro(roomCode), 900);
       return;
     }
 
-    // Start category pick for blocks 2–4
     startR1CategoryPick(roomCode);
     return;
   }
 
-  // Setup question (everyone can answer immediately)
   room.r1.currentQuestion = next;
-
-  // NEW: question countdown deadline (epoch ms)
   room.r1.questionEndsAt = Date.now() + next.timeLimitMs;
 
   room.r1.fastest = {
@@ -585,7 +718,6 @@ function startR1NextQuestion(roomCode) {
     questionTimer: null,
   };
 
-  // clear pick deadline if we were previously in category pick
   room.r1.pickEndsAt = null;
 
   room.state = "ROUND_1_QUESTION_OPEN";
@@ -595,7 +727,6 @@ function startR1NextQuestion(roomCode) {
   broadcastR1FastestState(roomCode);
   setR1QuestionPresented(roomCode, next);
 
-  // Server-authoritative question timer (if nobody wins in time)
   room.r1.fastest.questionTimer = setTimeout(() => {
     const stillRoom = rooms[roomCode];
     if (!stillRoom) return;
@@ -606,20 +737,17 @@ function startR1NextQuestion(roomCode) {
     const fastest = stillRoom.r1.fastest;
     if (!q || !fastest) return;
 
-    // If a winner happened right before timer fired, ignore
     if (fastest.winnerPlayerId) return;
 
-    // clear deadline when question closes
     stillRoom.r1.questionEndsAt = null;
 
-    // Apply timeout penalty to players who never attempted an answer
     for (const pid of Object.keys(stillRoom.players)) {
       const p = stillRoom.players[pid];
       if (!p) continue;
 
       const attempted = fastest.answeredPlayerIds.has(pid);
       if (!attempted) {
-        p.score = (p.score ?? 0) + SCORE_TIMEOUT;
+        addScoreClamped(p, SCORE_TIMEOUT);
       }
     }
 
@@ -631,9 +759,8 @@ function startR1NextQuestion(roomCode) {
     });
 
     broadcastPlayerList(roomCode);
-    broadcastR1FastestState(roomCode); // endsAt will now be null
+    broadcastR1FastestState(roomCode);
 
-    // Move on
     setTimeout(() => startR1NextQuestion(roomCode), 900);
   }, next.timeLimitMs);
 }
@@ -651,27 +778,21 @@ function sendR1SnapshotToSocket(roomCode, room, socket) {
       currentCategoryId: room.r1.currentCategoryId,
       chooserPlayerId: room.r1.chooserPlayerId ?? null,
       pickOptions: room.r1.pickOptions ?? null,
-
-      // NEW: deadlines
       pickEndsAt: room.r1.pickEndsAt ?? null,
       questionEndsAt: room.r1.questionEndsAt ?? null,
     },
   });
 
-  // If a question exists, send it
   if (room.r1.currentQuestion) {
     socket.emit("server:r1_question_presented", {
       roomCode,
       questionId: room.r1.currentQuestion.id,
       prompt: room.r1.currentQuestion.prompt,
-      answers: room.r1.currentQuestion.answers,
-
-      // NEW: countdown
+      answers: normalizeAnswers4(room.r1.currentQuestion.answers),
       endsAt: room.r1.questionEndsAt ?? null,
     });
   }
 
-  // If question open, send fastest-state snapshot
   if (room.state === "ROUND_1_QUESTION_OPEN") {
     socket.emit("server:r1_fastest_state", {
       roomCode,
@@ -693,13 +814,10 @@ function sendR1SnapshotToSocket(roomCode, room, socket) {
       answeredPlayerIds: room.r1.fastest
         ? Array.from(room.r1.fastest.answeredPlayerIds)
         : [],
-
-      // NEW: countdown
       endsAt: room.r1.questionEndsAt ?? null,
     });
   }
 
-  // If category pick, send options
   if (room.state === "ROUND_1_CATEGORY_PICK") {
     socket.emit("server:r1_category_pick", {
       roomCode,
@@ -712,11 +830,369 @@ function sendR1SnapshotToSocket(roomCode, room, socket) {
         name: CONTENT.categories.find((c) => c.id === id)?.name || id,
       })),
       timeoutMs: CATEGORY_PICK_TIMEOUT_MS,
-
-      // NEW: countdown
       endsAt: room.r1.pickEndsAt ?? null,
     });
   }
+}
+
+// ----------------------
+// Final Podium helpers
+// ----------------------
+function buildFinalStartingHeights(room) {
+  const ids = Object.keys(room.players);
+  const scores = ids.map((id) => room.players[id]?.score ?? 0);
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (const s of scores) {
+    if (s < min) min = s;
+    if (s > max) max = s;
+  }
+  if (!Number.isFinite(min)) min = 0;
+  if (!Number.isFinite(max)) max = 0;
+
+  const range = Math.max(1, max - min);
+
+  // Minimum height that yields at least FINAL_MIN_SURVIVE_SEC of bar
+  const minHeightForSurvive = clamp(
+    FINAL_FALL_RATE_PER_SEC * FINAL_MIN_SURVIVE_SEC,
+    0,
+    1
+  );
+
+  const heights = {};
+  for (const pid of ids) {
+    const s = room.players[pid]?.score ?? 0;
+    const t = (s - min) / range; // 0..1
+    const h =
+      FINAL_MIN_START_HEIGHT +
+      t * (FINAL_MAX_START_HEIGHT - FINAL_MIN_START_HEIGHT);
+
+    heights[pid] = clamp(Math.max(h, minHeightForSurvive), 0, 1);
+  }
+  return heights;
+}
+
+function countAlive(room) {
+  return (room.final?.alivePlayerIds || []).length;
+}
+
+function getLowestAliveHeight(room) {
+  let low = Infinity;
+  for (const pid of room.final.alivePlayerIds) {
+    const h = room.final.heights[pid] ?? 0;
+    if (h < low) low = h;
+  }
+  if (!Number.isFinite(low)) low = 0;
+  return low;
+}
+
+function stopFinalFallLoop(room) {
+  if (room.final?.fallInterval) {
+    clearInterval(room.final.fallInterval);
+    room.final.fallInterval = null;
+  }
+}
+
+function eliminateIfOnFloor(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || room.roundId !== 99) return;
+
+  const alive = [];
+  for (const pid of room.final.alivePlayerIds) {
+    const h = room.final.heights[pid] ?? 0;
+    if (h > 0) alive.push(pid);
+  }
+  room.final.alivePlayerIds = alive;
+
+  if (alive.length <= 1) {
+    const winnerId = alive[0] ?? null;
+    room.state = "FINAL_COMPLETE";
+    room.final.phase = "complete";
+    stopFinalFallLoop(room);
+    room.final.questionEndsAt = null;
+
+    io.to(roomCode).emit("server:final_complete", {
+      roomCode,
+      winnerPlayerId: winnerId,
+      winnerDisplayName: winnerId
+        ? room.players[winnerId]?.displayName ?? null
+        : null,
+      heights: room.final.heights,
+    });
+
+    broadcastState(roomCode);
+    broadcastPlayerList(roomCode);
+    return true;
+  }
+
+  return false;
+}
+
+function pickNextFinalQuestion(room) {
+  // simple: shuffle once at round start and pop
+  const next = room.final.questionsQueue.shift();
+  return next || null;
+}
+
+function startFinalIntro(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+
+  // If you later add middle rounds, this is where you'd branch based on room.options.middleCount etc.
+  room.roundId = 99;
+  room.state = "FINAL_INTRO";
+
+  room.final = {
+    alivePlayerIds: Object.keys(room.players),
+    heights: buildFinalStartingHeights(room),
+    answered: {}, // pid -> { choice, isCorrect, atMs }
+    currentQuestion: null,
+    questionEndsAt: null,
+    fallInterval: null,
+    lastTickAt: null,
+    questionsQueue: shuffleCopy(FINAL_CONTENT.questions),
+    phase: "intro",
+  };
+
+  broadcastState(roomCode);
+  broadcastPlayerList(roomCode);
+
+  setTimeout(() => {
+    const stillRoom = rooms[roomCode];
+    if (!stillRoom) return;
+    if (stillRoom.state !== "FINAL_INTRO") return;
+    startFinalNextQuestion(roomCode);
+  }, FINAL_INTRO_MS);
+}
+
+function startFinalFallLoop(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+
+  stopFinalFallLoop(room);
+
+  room.final.lastTickAt = Date.now();
+  room.final.fallInterval = setInterval(() => {
+    const stillRoom = rooms[roomCode];
+    if (!stillRoom) return;
+    if (stillRoom.state !== "FINAL_QUESTION_OPEN") return;
+
+    const now = Date.now();
+    const dtMs = Math.max(0, now - (stillRoom.final.lastTickAt || now));
+    stillRoom.final.lastTickAt = now;
+
+    const dtSec = dtMs / 1000;
+    const drop = FINAL_FALL_RATE_PER_SEC * dtSec;
+
+    // Drop only players who are alive AND have NOT answered this question
+    for (const pid of stillRoom.final.alivePlayerIds) {
+      if (stillRoom.final.answered[pid]) continue;
+      stillRoom.final.heights[pid] = clamp(
+        (stillRoom.final.heights[pid] ?? 0) - drop,
+        0,
+        1
+      );
+    }
+
+    // If anyone hits 0 during the fall, eliminate immediately (Buzz-style)
+    if (eliminateIfOnFloor(roomCode)) return;
+  }, 50);
+}
+
+function startFinalNextQuestion(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  if (room.roundId !== 99) return;
+
+  // Clear previous question state
+  room.final.answered = {};
+  room.final.currentQuestion = null;
+  room.final.questionEndsAt = null;
+  stopFinalFallLoop(room);
+
+  // If already have a winner, bail
+  if (countAlive(room) <= 1) {
+    eliminateIfOnFloor(roomCode);
+    return;
+  }
+
+  const q = pickNextFinalQuestion(room);
+  if (!q) {
+    // No more questions: winner = highest podium among alive
+    let bestId = null;
+    let bestH = -Infinity;
+    for (const pid of room.final.alivePlayerIds) {
+      const h = room.final.heights[pid] ?? 0;
+      if (h > bestH) {
+        bestH = h;
+        bestId = pid;
+      }
+    }
+
+    room.state = "FINAL_COMPLETE";
+    room.final.phase = "complete";
+    io.to(roomCode).emit("server:final_complete", {
+      roomCode,
+      winnerPlayerId: bestId,
+      winnerDisplayName: bestId
+        ? room.players[bestId]?.displayName ?? null
+        : null,
+      heights: room.final.heights,
+      reason: "OUT_OF_QUESTIONS",
+    });
+    broadcastState(roomCode);
+    broadcastPlayerList(roomCode);
+    return;
+  }
+
+  room.final.currentQuestion = q;
+  room.final.questionEndsAt = Date.now() + (q.timeLimitMs ?? 5000);
+  room.final.phase = "question_open";
+
+  room.state = "FINAL_QUESTION_OPEN";
+
+  // Send question to everyone
+  io.to(roomCode).emit("server:final_question_presented", {
+    roomCode,
+    questionId: q.id,
+    prompt: q.prompt,
+    // Upgrade: always send a predictable 4-answer array to clients
+    answers: normalizeAnswers4(q.answers),
+    endsAt: room.final.questionEndsAt,
+    alivePlayerIds: room.final.alivePlayerIds,
+    heights: room.final.heights,
+  });
+
+  broadcastState(roomCode);
+
+  // Start falling
+  startFinalFallLoop(roomCode);
+
+  // Reveal when time is up (if not all answered first)
+  setTimeout(() => {
+    const stillRoom = rooms[roomCode];
+    if (!stillRoom) return;
+    if (stillRoom.state !== "FINAL_QUESTION_OPEN") return;
+    if (stillRoom.final?.currentQuestion?.id !== q.id) return;
+
+    finalizeFinalQuestion(roomCode, "timeout");
+  }, q.timeLimitMs ?? 5000);
+}
+
+function finalizeFinalQuestion(roomCode, reason) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  if (room.state !== "FINAL_QUESTION_OPEN") return;
+
+  stopFinalFallLoop(room);
+
+  const q = room.final.currentQuestion;
+  if (!q) return;
+
+  room.state = "FINAL_REVEAL";
+  room.final.phase = "reveal";
+  room.final.questionEndsAt = null;
+
+  // Determine correctness for each alive player
+  const correctChoice = q.correct;
+
+  // Identify first correct (by earliest atMs among correct answers)
+  let firstCorrectPid = null;
+  let firstCorrectAt = Infinity;
+
+  for (const pid of room.final.alivePlayerIds) {
+    const a = room.final.answered[pid];
+    if (!a) continue;
+    if (a.choice === correctChoice) {
+      if (a.atMs < firstCorrectAt) {
+        firstCorrectAt = a.atMs;
+        firstCorrectPid = pid;
+      }
+    }
+  }
+
+  // Apply outcomes
+  const lowestBefore = getLowestAliveHeight(room);
+
+  const resultsByPlayerId = {};
+
+  for (const pid of room.final.alivePlayerIds) {
+    const before = room.final.heights[pid] ?? 0;
+    const a = room.final.answered[pid] || null;
+
+    let outcome = "no_answer";
+    let delta = 0;
+
+    if (!a) {
+      // No answer
+      delta = -FINAL_NOANSWER_DROP;
+      outcome = "no_answer";
+    } else if (a.choice === correctChoice) {
+      // Correct
+      if (pid === firstCorrectPid) {
+        // Elasticity: the lower you are (relative to lowest), the bigger the boost
+        const h = before;
+        const low = lowestBefore;
+        const rel = clamp((low - h) / 0.5, 0, 1);
+        const boost =
+          FINAL_FIRST_CORRECT_BOOST_BASE + rel * FINAL_FIRST_CORRECT_ELASTICITY;
+        delta = boost;
+        outcome = "first_correct";
+      } else {
+        delta = 0;
+        outcome = "correct";
+      }
+    } else {
+      // Wrong
+      delta = -FINAL_WRONG_DROP;
+      outcome = "wrong";
+    }
+
+    room.final.heights[pid] = clamp(before + delta, 0, 1);
+
+    resultsByPlayerId[pid] = {
+      outcome,
+      choice: a?.choice ?? null,
+      delta,
+      heightBefore: before,
+      heightAfter: room.final.heights[pid],
+    };
+  }
+
+  // Eliminate anyone who hit the floor due to reveal
+  eliminateIfOnFloor(roomCode);
+
+  io.to(roomCode).emit("server:final_reveal", {
+    roomCode,
+    questionId: q.id,
+    correctChoice,
+    firstCorrectPlayerId: firstCorrectPid,
+    firstCorrectDisplayName: firstCorrectPid
+      ? room.players[firstCorrectPid]?.displayName ?? null
+      : null,
+    resultsByPlayerId,
+    heights: room.final.heights,
+    alivePlayerIds: room.final.alivePlayerIds,
+    reason,
+  });
+
+  broadcastState(roomCode);
+  broadcastPlayerList(roomCode);
+
+  // Next question after reveal pause (unless game ended)
+  setTimeout(() => {
+    const stillRoom = rooms[roomCode];
+    if (!stillRoom) return;
+    if (stillRoom.state !== "FINAL_REVEAL") return;
+
+    if (countAlive(stillRoom) <= 1) {
+      eliminateIfOnFloor(roomCode);
+      return;
+    }
+
+    startFinalNextQuestion(roomCode);
+  }, FINAL_REVEAL_MS);
 }
 
 // ----------------------
@@ -772,32 +1248,28 @@ io.on("connection", (socket) => {
         roomCode,
         hostSocketId: socket.id,
         maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : 6,
-        players: {}, // playerId -> player data
-        playerTokens: {}, // token -> current playerId
+        players: {},
+        playerTokens: {},
         usedQuestionIds: new Set(),
         state: "LOBBY",
         roundId: 0,
-        gameStatus: "lobby", // "lobby" | "in_progress" | "finished"
+        gameStatus: "lobby",
         options: { ...DEFAULT_ROOM_OPTIONS },
-        kickedTokens: new Set(), // tokens blocked from joining/rejoining
+        kickedTokens: new Set(),
         r1: {
-          blockIndex: 0, // 1..4
-          usedCategoryIds: new Set(), // excludes general
+          blockIndex: 0,
+          usedCategoryIds: new Set(),
           currentCategoryId: null,
           questionsQueue: [],
           currentQuestion: null,
-
-          // fastest finger state
           fastest: null,
-
           chooserPlayerId: null,
           pickOptions: null,
           pickTimer: null,
-
-          // NEW: countdown deadlines (epoch ms)
           pickEndsAt: null,
           questionEndsAt: null,
         },
+        final: null,
       };
 
       socket.join(roomCode);
@@ -843,7 +1315,7 @@ io.on("connection", (socket) => {
     room.options = sanitizeOptions(room, options);
 
     broadcastOptions(code);
-    broadcastState(code); // so host UI has one unified stream if desired
+    broadcastState(code);
 
     if (typeof ack === "function") ack({ ok: true, options: room.options });
   });
@@ -878,19 +1350,16 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Block future rejoin attempts from that device (token-based)
     if (p.playerToken) {
       room.kickedTokens.add(p.playerToken);
       delete room.playerTokens[p.playerToken];
     }
 
-    // Tell the phone it was kicked (if still connected)
     io.to(pid).emit("server:player_kicked", {
       roomCode: code,
       reason: "KICKED_BY_HOST",
     });
 
-    // Remove from room
     delete room.players[pid];
 
     broadcastPlayerList(code);
@@ -955,7 +1424,7 @@ io.on("connection", (socket) => {
       });
     }
 
-    // Send options snapshot to THIS phone immediately
+    // immediate options snapshot to this phone
     socket.emit("server:options_updated", {
       roomCode: code,
       gameStatus: room.gameStatus,
@@ -977,7 +1446,7 @@ io.on("connection", (socket) => {
     const token = String(playerToken || "").trim();
     const room = rooms[code];
 
-    if (room.kickedTokens && room.kickedTokens.has(token)) {
+    if (room?.kickedTokens && room.kickedTokens.has(token)) {
       if (typeof ack === "function") ack({ ok: false, reason: "KICKED" });
       return;
     }
@@ -1036,8 +1505,16 @@ io.on("connection", (socket) => {
       });
     }
 
-    // Send snapshot to this socket
+    // Send R1 snapshot if in R1
     sendR1SnapshotToSocket(code, room, socket);
+
+    // Send options snapshot to this phone
+    socket.emit("server:options_updated", {
+      roomCode: code,
+      gameStatus: room.gameStatus,
+      options: room.options,
+      availableMiddleGames: getAvailableMiddleGamesForRoom(room),
+    });
 
     broadcastPlayerList(code);
     broadcastState(code);
@@ -1054,19 +1531,15 @@ io.on("connection", (socket) => {
       .toUpperCase();
     const room = rooms[code];
 
-    if (room.gameStatus !== "lobby") {
-      if (typeof ack === "function")
-        ack({ ok: false, reason: "GAME_ALREADY_STARTED" });
-      return;
-    }
-
-    // Lock in options by flipping status
-    room.gameStatus = "in_progress";
-    broadcastOptions(code);
-
     if (!room) {
       if (typeof ack === "function")
         ack({ ok: false, reason: "ROOM_NOT_FOUND" });
+      return;
+    }
+
+    if (room.gameStatus !== "lobby") {
+      if (typeof ack === "function")
+        ack({ ok: false, reason: "GAME_ALREADY_STARTED" });
       return;
     }
 
@@ -1082,6 +1555,9 @@ io.on("connection", (socket) => {
       return;
     }
 
+    room.gameStatus = "in_progress";
+    broadcastOptions(code);
+
     // Reset run state
     room.usedQuestionIds = new Set();
     room.state = "ROUND_1_INTRO";
@@ -1094,11 +1570,8 @@ io.on("connection", (socket) => {
     room.r1.questionsQueue = [];
     room.r1.currentQuestion = null;
 
-    // Clear deadlines
     room.r1.pickEndsAt = null;
     room.r1.questionEndsAt = null;
-
-    // Clear fastest state
     room.r1.fastest = null;
 
     room.r1.chooserPlayerId = null;
@@ -1108,10 +1581,13 @@ io.on("connection", (socket) => {
       room.r1.pickTimer = null;
     }
 
+    // Reset Final
+    if (room.final?.fallInterval) clearInterval(room.final.fallInterval);
+    room.final = null;
+
     broadcastState(code);
     broadcastR1FastestState(code);
 
-    // After 2 seconds, start Block 1 (General)
     setTimeout(() => {
       const stillRoom = rooms[code];
       if (!stillRoom) return;
@@ -1169,35 +1645,29 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // Winner already decided -> ignore
       if (fastest.winnerPlayerId) {
         if (typeof ack === "function")
           ack({ ok: false, reason: "ALREADY_HAS_WINNER" });
         return;
       }
 
-      // Locked out -> ignore
       if (fastest.lockedOutPlayerIds.has(pid)) {
         if (typeof ack === "function") ack({ ok: false, reason: "LOCKED_OUT" });
         return;
       }
 
-      // Record attempt (prevents timeout penalty)
       fastest.answeredPlayerIds.add(pid);
 
       const correct = ch === q.correct;
 
       if (correct) {
-        // First correct wins
         fastest.winnerPlayerId = pid;
         fastest.winnerChoice = ch;
 
-        // Stop timer + clear deadline
         clearR1QuestionTimer(room);
 
-        // Score
         const p = room.players[pid];
-        if (p) p.score = (p.score ?? 0) + SCORE_CORRECT;
+        if (p) addScoreClamped(p, SCORE_CORRECT);
 
         io.to(code).emit("server:r1_answer_winner", {
           roomCode: code,
@@ -1215,16 +1685,14 @@ io.on("connection", (socket) => {
 
         if (typeof ack === "function") ack({ ok: true, correct: true });
 
-        // Next question
         setTimeout(() => startR1NextQuestion(code), 900);
         return;
       }
 
-      // Wrong -> lock out this player (and apply wrong penalty)
       fastest.lockedOutPlayerIds.add(pid);
 
       const p = room.players[pid];
-      if (p) p.score = (p.score ?? 0) + SCORE_WRONG;
+      if (p) addScoreClamped(p, SCORE_WRONG);
 
       io.to(code).emit("server:r1_answer_locked_out", {
         roomCode: code,
@@ -1232,7 +1700,7 @@ io.on("connection", (socket) => {
         answeringPlayerId: pid,
         answeringDisplayName: p ? p.displayName : null,
         chosen: ch,
-        correctChoice: q.correct, // you may hide this on phones later; host can show it
+        correctChoice: q.correct,
         scoreDelta: SCORE_WRONG,
         newScore: p ? p.score : null,
       });
@@ -1286,13 +1754,98 @@ io.on("connection", (socket) => {
         room.r1.pickTimer = null;
       }
 
-      // clear pick deadline when chooser picks
       room.r1.pickEndsAt = null;
 
       if (typeof ack === "function") ack({ ok: true });
 
-      // Start next block
       startR1Block(code, pick, room.r1.blockIndex + 1);
+    }
+  );
+
+  // --------------------
+  // FINAL: phone answer tap
+  // --------------------
+  socket.on(
+    "phone:final_answer_tap",
+    ({ roomCode, playerId, choice } = {}, ack) => {
+      const code = String(roomCode || "")
+        .trim()
+        .toUpperCase();
+      const room = rooms[code];
+      if (!room) {
+        if (typeof ack === "function")
+          ack({ ok: false, reason: "ROOM_NOT_FOUND" });
+        return;
+      }
+
+      if (room.state !== "FINAL_QUESTION_OPEN") {
+        if (typeof ack === "function")
+          ack({ ok: false, reason: "QUESTION_NOT_OPEN" });
+        return;
+      }
+
+      const pid = playerId || socket.id;
+      if (!room.players[pid]) {
+        if (typeof ack === "function")
+          ack({ ok: false, reason: "PLAYER_NOT_IN_ROOM" });
+        return;
+      }
+
+      if (!room.final?.alivePlayerIds?.includes(pid)) {
+        if (typeof ack === "function") ack({ ok: false, reason: "NOT_ALIVE" });
+        return;
+      }
+
+      const ch = String(choice || "")
+        .trim()
+        .toUpperCase();
+      if (!["A", "B", "C", "D"].includes(ch)) {
+        if (typeof ack === "function")
+          ack({ ok: false, reason: "INVALID_CHOICE" });
+        return;
+      }
+
+      // One answer per question
+      if (room.final.answered[pid]) {
+        if (typeof ack === "function")
+          ack({ ok: false, reason: "ALREADY_ANSWERED" });
+        return;
+      }
+
+      const q = room.final.currentQuestion;
+      if (!q) {
+        if (typeof ack === "function")
+          ack({ ok: false, reason: "NO_CURRENT_QUESTION" });
+        return;
+      }
+
+      room.final.answered[pid] = {
+        choice: ch,
+        atMs: Date.now(),
+      };
+
+      // Tell the phone it "locked in"
+      if (typeof ack === "function") ack({ ok: true });
+
+      // Broadcast a lightweight update (optional)
+      io.to(code).emit("server:final_answer_received", {
+        roomCode: code,
+        playerId: pid,
+        displayName: room.players[pid]?.displayName ?? null,
+      });
+
+      // If everyone alive answered, reveal immediately
+      const alive = room.final.alivePlayerIds;
+      let allAnswered = true;
+      for (const aPid of alive) {
+        if (!room.final.answered[aPid]) {
+          allAnswered = false;
+          break;
+        }
+      }
+      if (allAnswered) {
+        finalizeFinalQuestion(code, "all_answered");
+      }
     }
   );
 
@@ -1315,10 +1868,11 @@ io.on("connection", (socket) => {
 
     io.to(code).emit("server:error", { code: "ROOM_CLOSED" });
 
-    // Clear timers
     if (room.r1?.pickTimer) clearTimeout(room.r1.pickTimer);
     if (room.r1?.fastest?.questionTimer)
       clearTimeout(room.r1.fastest.questionTimer);
+
+    if (room.final?.fallInterval) clearInterval(room.final.fallInterval);
 
     delete rooms[code];
 
@@ -1329,7 +1883,6 @@ io.on("connection", (socket) => {
     for (const code of Object.keys(rooms)) {
       const room = rooms[code];
 
-      // Host disconnect closes the room (phones boot)
       if (room.hostSocketId === socket.id) {
         console.log(`Host disconnected; closing room ${code}`);
         io.to(code).emit("server:error", { code: "ROOM_CLOSED" });
@@ -1338,11 +1891,12 @@ io.on("connection", (socket) => {
         if (room.r1?.fastest?.questionTimer)
           clearTimeout(room.r1.fastest.questionTimer);
 
+        if (room.final?.fallInterval) clearInterval(room.final.fallInterval);
+
         delete rooms[code];
         continue;
       }
 
-      // Phone disconnect: keep record, mark offline, allow rejoin via token
       if (room.players[socket.id]) {
         const player = room.players[socket.id];
         player.isConnected = false;
@@ -1365,4 +1919,6 @@ io.on("connection", (socket) => {
 
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Host:  http://localhost:${PORT}/host`);
+  console.log(`Phone: http://localhost:${PORT}/phone`);
 });

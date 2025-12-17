@@ -1,0 +1,1051 @@
+[
+  {
+    "id": "final_podium_0001",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the 1994 film directed by Quentin Tarantino that intertwines the stories of two mob hitmen, a boxer, a gangster's wife, and a pair of bandits?",
+    "answers": ["Reservoir Dogs", "Pulp Fiction", "Jackie Brown", "Kill Bill"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0002",
+    "categoryId": "final_podium",
+    "prompt": "In the 1993 movie \"Jurassic Park,\" what type of dinosaur was the first to be cloned and shown to the audience?",
+    "answers": [
+      "Tyrannosaurus Rex",
+      "Velociraptor",
+      "Triceratops",
+      "Brachiosaurus"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0003",
+    "categoryId": "final_podium",
+    "prompt": "What is the title of the 1995 crime thriller directed by Bryan Singer, which follows the investigation of a mysterious murder that leads to an intricate web of deceit and corruption?",
+    "answers": ["Reservoir Dogs", "The Usual Suspects", "Se7en", "Heat"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0004",
+    "categoryId": "final_podium",
+    "prompt": "What is the title of the 1999 science fiction film directed by Lana and Lilly Wachowski that explores the concept of simulated reality?",
+    "answers": ["Inception", "The Truman Show", "The Matrix", "Dark City"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0005",
+    "categoryId": "final_podium",
+    "prompt": "In the 1996 film \"Fargo,\" directed by Joel and Ethan Coen, what is the name of the pregnant police chief who investigates a series of homicides in Minnesota?",
+    "answers": [
+      "Marge Gunderson",
+      "Clarice Starling",
+      "Jane Craig",
+      "Ellen Ripley"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0006",
+    "categoryId": "final_podium",
+    "prompt": "Who directed the 1999 psychological thriller film \"Fight Club,\" based on the novel by Chuck Palahniuk?",
+    "answers": [
+      "Quentin Tarantino",
+      "David Fincher",
+      "Martin Scorsese",
+      "Christopher Nolan"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0007",
+    "categoryId": "final_podium",
+    "prompt": "In the 1997 film \"L.A. Confidential,\" which actor played the role of LAPD Sergeant Jack Vincennes, who becomes embroiled in a corruption scandal?",
+    "answers": [
+      "Kevin Spacey",
+      "Russell Crowe",
+      "Guy Pearce",
+      "James Cromwell"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0008",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the 1999 film directed by Paul Thomas Anderson that follows the rise and fall of a pornographic filmmaker during the Golden Age of Porn in the 1970s and 1980s?",
+    "answers": [
+      "Punch-Drunk Love",
+      "Magnolia",
+      "Boogie Nights",
+      "There Will Be Blood"
+    ],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0009",
+    "categoryId": "final_podium",
+    "prompt": "Who directed the 1998 film \"American History X,\" a drama that explores themes of racism and redemption through the story of a former neo-Nazi skinhead?",
+    "answers": [
+      "Quentin Tarantino",
+      "Tony Kaye",
+      "David Fincher",
+      "Martin Scorsese"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0010",
+    "categoryId": "final_podium",
+    "prompt": "Which 1994 film, directed by Robert Zemeckis and based on a Winston Groom novel, won the Academy Award for Best Picture?",
+    "answers": [
+      "Pulp Fiction",
+      "Schindler's List",
+      "The Shawshank Redemption",
+      "Forrest Gump"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0011",
+    "categoryId": "final_podium",
+    "prompt": "What is the only mammal capable of true flight (not gliding)?",
+    "answers": ["Flying fox", "Colugo", "Flying squirrel", "Bat"],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0012",
+    "categoryId": "final_podium",
+    "prompt": "Which animal possesses the largest brain relative to its body size?",
+    "answers": ["Elephant", "Sperm whale", "Dolphin", "Gorilla"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0013",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the smallest species of penguin?",
+    "answers": [
+      "Little blue penguin",
+      "Adélie penguin",
+      "Chinstrap penguin",
+      "Gentoo penguin"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0014",
+    "categoryId": "final_podium",
+    "prompt": "Which insect holds the record for the fastest flying insect in the world?",
+    "answers": ["Dragonfly", "Hawk moth", "Housefly", "Bee"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0015",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the small, elusive mammal native to Australia that is capable of laying eggs?",
+    "answers": ["Platypus", "Kangaroo", "Tasmanian devil", "Koala"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0016",
+    "categoryId": "final_podium",
+    "prompt": "Which bird species is known for its ability to mimic chainsaws and other mechanical sounds?",
+    "answers": ["Mockingbird", "Lyrebird", "Parrot", "Starling"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0017",
+    "categoryId": "final_podium",
+    "prompt": "What is the only species of bear found in the Southern Hemisphere?",
+    "answers": ["Polar bear", "Brown bear", "Spectacled bear", "Panda bear"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0018",
+    "categoryId": "final_podium",
+    "prompt": "Which animal has the most complex eyesight in the animal kingdom?",
+    "answers": ["Mantis shrimp", "Eagle", "Owl", "Cuttlefish"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0019",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the largest living species of turtle, known for its distinctive ridged shell and often found in tropical and subtropical oceans?",
+    "answers": [
+      "Loggerhead turtle",
+      "Leatherback sea turtle",
+      "Green sea turtle",
+      "Hawksbill turtle"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0020",
+    "categoryId": "final_podium",
+    "prompt": "Which creature holds the record for the longest migration journey of any animal?",
+    "answers": [
+      "Sockeye salmon",
+      "Monarch butterfly",
+      "Humpback whale",
+      "Arctic tern"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0021",
+    "categoryId": "final_podium",
+    "prompt": "What city holds the record for the highest altitude among the world's capital cities?",
+    "answers": ["La Paz", "Kathmandu", "Quito", "Bogotá"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0022",
+    "categoryId": "final_podium",
+    "prompt": "What is the most populous city in Africa, considering population within city limits?",
+    "answers": ["Cairo", "Johannesburg", "Lagos", "Kinshasa"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0023",
+    "categoryId": "final_podium",
+    "prompt": "Which European city is split by the Bosphorus Strait, separating its European and Asian sectors?",
+    "answers": ["Budapest", "Warsaw", "Bucharest", "Istanbul"],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0024",
+    "categoryId": "final_podium",
+    "prompt": "What city holds the title of the oldest continuously inhabited city globally?",
+    "answers": ["Athens", "Jerusalem", "Cairo", "Damascus"],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0025",
+    "categoryId": "final_podium",
+    "prompt": "Which Asian city earns the moniker \"City of Temples\" due to its plethora of ancient temples and pagodas?",
+    "answers": ["Bagan", "Kyoto", "Bangkok", "Siem Reap"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0026",
+    "categoryId": "final_podium",
+    "prompt": "What city is recognized as the northernmost capital city worldwide?",
+    "answers": ["Helsinki", "Stockholm", "Oslo", "Reykjavik"],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0027",
+    "categoryId": "final_podium",
+    "prompt": "What is the capital city of New Zealand?",
+    "answers": ["Auckland", "Christchurch", "Wellington", "Queenstown"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0028",
+    "categoryId": "final_podium",
+    "prompt": "Which city in India is home to the iconic Taj Mahal?",
+    "answers": ["Delhi", "Mumbai", "Agra", "Jaipur"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0029",
+    "categoryId": "final_podium",
+    "prompt": "Which city is often referred to as the \"Pearl of the Adriatic\" for its stunning coastline and medieval architecture?",
+    "answers": ["Athens", "Dubrovnik", "Trieste", "Venice"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0030",
+    "categoryId": "final_podium",
+    "prompt": "What is the capital city of Kazakhstan, known for its modern skyline, cultural landmarks, and Eurasian heritage?",
+    "answers": ["Almaty", "Bishkek", "Astana", "Tashkent"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0031",
+    "categoryId": "final_podium",
+    "prompt": "What is the title of the novel by Fyodor Dostoevsky that follows the psychological turmoil of Rodion Raskolnikov, a former student who commits a murder?",
+    "answers": [
+      "The Brothers Karamazov",
+      "Crime and Punishment",
+      "The Idiot",
+      "Demons"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0032",
+    "categoryId": "final_podium",
+    "prompt": "In George Orwell's dystopian novel, what is the ruling entity that governs Oceania in \"1984\"?",
+    "answers": ["The Brotherhood", "The Regime", "The Council", "The Party"],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0033",
+    "categoryId": "final_podium",
+    "prompt": "Who is the author of the novel \"To Kill a Mockingbird,\" which explores themes of racial injustice and moral growth in the American South?",
+    "answers": [
+      "F. Scott Fitzgerald",
+      "Harper Lee",
+      "John Steinbeck",
+      "Ernest Hemingway"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0034",
+    "categoryId": "final_podium",
+    "prompt": "What is the title of the science fiction novel by Stanisław Lem that explores the challenges of communication with an extraterrestrial species?",
+    "answers": [
+      "The Futurological Congress",
+      "Solaris",
+      "His Master's Voice",
+      "The Invincible"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0035",
+    "categoryId": "final_podium",
+    "prompt": "Which novel by Thomas Pynchon follows the journey of Oedipa Maas as she unravels a conspiracy involving a mysterious underground postal system?",
+    "answers": [
+      "Gravity's Rainbow",
+      "V.",
+      "Mason & Dixon",
+      "The Crying of Lot 49"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0036",
+    "categoryId": "final_podium",
+    "prompt": "What is the title of Aldous Huxley's dystopian novel that portrays a futuristic society where human beings are genetically engineered and classified into castes?",
+    "answers": [
+      "Fahrenheit 451",
+      "Brave New World",
+      "The Handmaid's Tale",
+      "Animal Farm"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0037",
+    "categoryId": "final_podium",
+    "prompt": "Which novel by Franz Kafka tells the story of a man who wakes up one morning to find himself transformed into a giant insect?",
+    "answers": ["The Trial", "The Castle", "The Metamorphosis", "Amerika"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0038",
+    "categoryId": "final_podium",
+    "prompt": "Which classic novel by Mary Shelley follows the story of a scientist who creates a creature from reanimated body parts?",
+    "answers": [
+      "Dracula",
+      "Frankenstein",
+      "The Strange Case of Dr. Jekyll and Mr. Hyde",
+      "The Island of Doctor Moreau"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0039",
+    "categoryId": "final_podium",
+    "prompt": "In Margaret Atwood's dystopian novel \"The Handmaid's Tale,\" what is the name of the protagonist who serves as a handmaid in the Republic of Gilead?",
+    "answers": ["Ofglen", "Offred", "Serena Joy", "Aunt Lydia"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0040",
+    "categoryId": "final_podium",
+    "prompt": "In the novel by J.D. Salinger that follows the journey of a disillusioned teenager in New York City, who is the protagonist?",
+    "answers": [
+      "John Gallagher",
+      "Sally Hayes",
+      "Holden Caulfield",
+      "Nick Carraway"
+    ],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0041",
+    "categoryId": "final_podium",
+    "prompt": "What British inventor is credited for developing the concept of the world's first programmable computer, the Analytical Engine, in the 1830s?",
+    "answers": [
+      "Alan Turing",
+      "Ada Lovelace",
+      "Charles Babbage",
+      "John von Neumann"
+    ],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0042",
+    "categoryId": "final_podium",
+    "prompt": "Who invented the first mass-produced, practical sewing machine in 1846, revolutionizing the textile industry?",
+    "answers": [
+      "Isaac Singer",
+      "Elias Howe",
+      "Walter Hunt",
+      "Barthélemy Thimonnier"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0043",
+    "categoryId": "final_podium",
+    "prompt": "What French chemist and microbiologist is credited with a namesake discovery that revolutionized food preservation?",
+    "answers": [
+      "Louis Pasteur",
+      "Alexander Fleming",
+      "Marie Curie",
+      "Antoine Lavoisier"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0044",
+    "categoryId": "final_podium",
+    "prompt": "Known for her pioneering research on radioactivity, who was the first woman to win a Nobel Prize?",
+    "answers": [
+      "Stephanie Kwolek",
+      "Rosalind Franklin",
+      "Marie Curie",
+      "Ada Lovelace"
+    ],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0045",
+    "categoryId": "final_podium",
+    "prompt": "What Austrian neurologist is credited with inventing psychoanalysis, a clinical method for treating psychopathology through dialogue between a patient and a psychoanalyst?",
+    "answers": ["Alfred Adler", "Carl Jung", "Wilhelm Reich", "Sigmund Freud"],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0046",
+    "categoryId": "final_podium",
+    "prompt": "Name the company that introduced the first commercially available lithium-ion battery in 1991.",
+    "answers": ["Panasonic", "Sony", "Duracell", "Energizer"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0047",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the French physicist who invented the electric battery and discovered several elements, including sodium and potassium?",
+    "answers": [
+      "Joseph-Louis Lagrange",
+      "Jacques Charles",
+      "Antoine Lavoisier",
+      "André-Marie Ampère"
+    ],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0048",
+    "categoryId": "final_podium",
+    "prompt": "In what year was the World Wide Web invented, revolutionizing the way information is shared on the internet?",
+    "answers": ["1979", "1984", "1989", "1991"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0049",
+    "categoryId": "final_podium",
+    "prompt": "What scientist developed the first successful polio vaccine in the 1950s?",
+    "answers": [
+      "Jonas Salk",
+      "Albert Sabin",
+      "Edward Jenner",
+      "Alexander Fleming"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0050",
+    "categoryId": "final_podium",
+    "prompt": "What inventor is credited with the discovery of penicillin in 1928?",
+    "answers": [
+      "Alexander Fleming",
+      "Louis Pasteur",
+      "Marie Curie",
+      "Antoine Lavoisier"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0051",
+    "categoryId": "final_podium",
+    "prompt": "In the song \"Stairway to Heaven,\" what mystical object is mentioned that is said to be bought with a \"bustle in your hedgerow\"?",
+    "answers": ["May Queen", "Crystal Ball", "Magic Wand", "Enchanted Mirror"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0052",
+    "categoryId": "final_podium",
+    "prompt": "In the song \"Born to Run\" by Bruce Springsteen, what is the name of the main character's partner who says \"I wanna die with you, Wendy, on the street tonight\"?",
+    "answers": ["Mary", "Jenny", "Wendy", "Sarah"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0053",
+    "categoryId": "final_podium",
+    "prompt": "What is the real name of the guitarist known as Slash, famous for his work with Guns N' Roses?",
+    "answers": [
+      "Saul Hudson",
+      "Angus Young",
+      "David Howell Evans",
+      "Steve Hackett"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0054",
+    "categoryId": "final_podium",
+    "prompt": "Which iconic musician is better known by the stage name \"Meat Loaf\"?",
+    "answers": [
+      "David Coverdale",
+      "Michael Lee Aday",
+      "Bruce Dickinson",
+      "Paul Rodgers"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0055",
+    "categoryId": "final_podium",
+    "prompt": "In what year did Jimi Hendrix pass away at the age of 27?",
+    "answers": ["1967", "1969", "1970", "1971"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0056",
+    "categoryId": "final_podium",
+    "prompt": "Which legendary guitarist, known for his work with the bands Cream and The Yardbirds, was famously referred to as the \"Godfather of Rock Guitar\"?",
+    "answers": ["Eric Clapton", "Jimmy Page", "Jimi Hendrix", "Jeff Beck"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0057",
+    "categoryId": "final_podium",
+    "prompt": "In which year did The Beatles release their iconic album \"Sgt. Pepper's Lonely Hearts Club Band\"?",
+    "answers": ["1965", "1966", "1967", "1968"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0058",
+    "categoryId": "final_podium",
+    "prompt": "Who was the lead vocalist of the band Led Zeppelin, known for his powerful voice and charismatic stage presence?",
+    "answers": [
+      "Roger Daltrey",
+      "Freddie Mercury",
+      "Mick Jagger",
+      "Robert Plant"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0059",
+    "categoryId": "final_podium",
+    "prompt": "What is the title of the debut studio album by the American rock band Nirvana, released in 1989?",
+    "answers": ["In Utero", "Nevermind", "Bleach", "Rarities"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0060",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the lead guitarist of the band Queen, known for his unique playing style and flamboyant stage persona?",
+    "answers": [
+      "Eddie Van Halen",
+      "Brian May",
+      "Jimmy Page",
+      "Ritchie Blackmore"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0061",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the closest star to Earth, besides the Sun?",
+    "answers": ["Sirius", "Alpha Centauri", "Proxima Centauri", "Betelgeuse"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0062",
+    "categoryId": "final_podium",
+    "prompt": "Which planet in our solar system has the most moons?",
+    "answers": ["Jupiter", "Saturn", "Uranus", "Neptune"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0063",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the largest volcano in our solar system, located on Mars?",
+    "answers": ["Mount Etna", "Mauna Kea", "Olympus Mons", "Mount Vesuvius"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0064",
+    "categoryId": "final_podium",
+    "prompt": "Which space mission successfully landed humans on the Moon for the first time?",
+    "answers": ["Apollo 11", "Mercury-Atlas 6", "Voyager 1", "Mars Pathfinder"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0065",
+    "categoryId": "final_podium",
+    "prompt": "What is the term for the point in a planet's orbit around the Sun where it is closest to the star?",
+    "answers": ["Aphelion", "Perihelion", "Equinox", "Solstice"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0066",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of the spacecraft launched by NASA in 2006 to study Pluto and the Kuiper Belt objects?",
+    "answers": ["Galileo", "Juno", "Cassini", "New Horizons"],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0067",
+    "categoryId": "final_podium",
+    "prompt": "In the movie \"Deep Impact,\" what was the name of the meteor headed towards Earth?",
+    "answers": ["Messiah", "Wolf-Biederman", "Jensen-Bisach", "Smith-Johnson"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0068",
+    "categoryId": "final_podium",
+    "prompt": "What is the largest known planet outside our solar system?",
+    "answers": ["Kepler-22b", "WASP-17b", "HD 209458b", "TrES-4"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0069",
+    "categoryId": "final_podium",
+    "prompt": "Which spacecraft conducted the first flyby of Jupiter and Saturn, providing crucial data and images of these gas giants?",
+    "answers": ["Voyager 1", "Voyager 2", "Juno", "Cassini"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0070",
+    "categoryId": "final_podium",
+    "prompt": "What is the approximate age of the universe, according to current scientific estimates?",
+    "answers": [
+      "4.6 billion years",
+      "13.8 billion years",
+      "20 billion years",
+      "100 billion years"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0071",
+    "categoryId": "final_podium",
+    "prompt": "What is the real name of the supervillain known as The Joker, Batman's arch-nemesis?",
+    "answers": [
+      "Kirk Langstrom",
+      "Oswald Cobblepot",
+      "Edward Nygma",
+      "Jack White"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0072",
+    "categoryId": "final_podium",
+    "prompt": "In the \"Star Wars\" saga, who is the Sith Lord, ruling with an iron fist and seeking to eradicate the Jedi Order?",
+    "answers": ["Darth Vader", "Darth Sidious", "Darth Maul", "Count Dooku"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0073",
+    "categoryId": "final_podium",
+    "prompt": "What government does villain Dominic Greene intend to influence in \"Quantum of Solace\"?",
+    "answers": ["Belarus", "Ecuador", "Bolivia", "Kyrgyzstan"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0074",
+    "categoryId": "final_podium",
+    "prompt": "In Marvel Comics, who is the powerful mutant telepath who often serves as the primary adversary of the X-Men?",
+    "answers": ["Mystique", "Apocalypse", "Magneto", "Juggernaut"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0075",
+    "categoryId": "final_podium",
+    "prompt": "Which supervillain, created by Frank Miller, is a highly skilled marksman and the arch-nemesis of the vigilante known as Daredevil?",
+    "answers": ["Bullseye", "Elektra", "The Punisher", "Kingpin"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0076",
+    "categoryId": "final_podium",
+    "prompt": "What is the villainous alter ego of Norman Osborn, a wealthy industrialist and Spider-Man's archenemy in Marvel Comics?",
+    "answers": ["The Riddler", "Venom", "Green Goblin", "Doctor Octopus"],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0077",
+    "categoryId": "final_podium",
+    "prompt": "Name the iconic villainess from the \"Wonder Woman\" comics who can best be described as a “wicked sorceress”.",
+    "answers": ["Circe", "Cheetah", "Poison Ivy", "Giganta"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0078",
+    "categoryId": "final_podium",
+    "prompt": "What is the name of Saruman's stronghold, where he plots against the forces of good?",
+    "answers": ["Minis Tirith", "Isengard", "Helm's Deep", "Mordor"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0079",
+    "categoryId": "final_podium",
+    "prompt": "What is Elliot Carver's ultimate goal in engineering conflicts in \"Tomorrow Never Dies\"?",
+    "answers": [
+      "To destabilize governments and gain power.",
+      "To gain control over the world's energy resources.",
+      "To seek revenge for his own government's betrayal.",
+      "To increase his media empire's influence and profits."
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0080",
+    "categoryId": "final_podium",
+    "prompt": "In \"Die Hard,\" which building becomes the site of Hans Gruber's hostage situation?",
+    "answers": [
+      "Nakamoto Plaza",
+      "Nakatomi Plaza",
+      "Nakamura Tower",
+      "Nakashima Tower"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0081",
+    "categoryId": "final_podium",
+    "prompt": "In which century did the Hundred Years' War take place?",
+    "answers": ["14th century", "17th century", "18th century", "19th century"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0082",
+    "categoryId": "final_podium",
+    "prompt": "Which two ancient civilizations fought in the Punic Wars?",
+    "answers": [
+      "Rome and Persia",
+      "Rome and Sparta",
+      "Rome and Carthage",
+      "Sparta and Athens"
+    ],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0083",
+    "categoryId": "final_podium",
+    "prompt": "Which battle marked the final defeat of Napoleon Bonaparte in 1815?",
+    "answers": [
+      "The Battle of Austerlitz",
+      "The Battle of Borodino",
+      "The Battle of Trafalgar",
+      "The Battle of Waterloo"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0084",
+    "categoryId": "final_podium",
+    "prompt": "Who was the Roman general responsible for the conquest of Gaul and later became dictator of Rome?",
+    "answers": [
+      "Augustus Caesar",
+      "Marcus Aurelius",
+      "Mark Antony",
+      "Julius Caesar"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0085",
+    "categoryId": "final_podium",
+    "prompt": "In which war was The Battle of Fredericksburg fought?",
+    "answers": [
+      "The War of 1812",
+      "The American Civil War",
+      "The American Revolutionary War",
+      "The Spanish-American War"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0086",
+    "categoryId": "final_podium",
+    "prompt": "Who's assassination was said to spark World War I?",
+    "answers": [
+      "Archduke Maximilian",
+      "Kaiser Wilhelm II",
+      "Emperor Charles I of Austria",
+      "Archduke Franz Ferdinand"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0087",
+    "categoryId": "final_podium",
+    "prompt": "Name the two countries that fought against each other in The Falklands War.",
+    "answers": [
+      "Argentina & United Kingdom",
+      "Brazil & Chile",
+      "Argentina & Chile",
+      "Chile & United Kingdom"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0088",
+    "categoryId": "final_podium",
+    "prompt": "In what decade was The Six-Day War fought?",
+    "answers": ["1950s", "1960s", "1970s", "1980s"],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0089",
+    "categoryId": "final_podium",
+    "prompt": "Who was the Supreme Commander of the Allied Forces in Europe during World War II?",
+    "answers": [
+      "George S. Patton",
+      "Winston Churchill",
+      "Douglas MacArthur",
+      "Dwight D. Eisenhower"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0090",
+    "categoryId": "final_podium",
+    "prompt": "What was the name of the diplomatic strategy notably pursued by Western democracies toward Nazi Germany before World War II?",
+    "answers": ["Appeasement", "Deterrence", "Isolationism", "Concession"],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+
+  {
+    "id": "final_podium_0091",
+    "categoryId": "final_podium",
+    "prompt": "Who was the notorious American financier convicted of running a Ponzi scheme considered the largest financial fraud in U.S. history?",
+    "answers": [
+      "Bernie Madoff",
+      "Jordan Belfort",
+      "Kenneth Lay",
+      "Gordon Gekko"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0092",
+    "categoryId": "final_podium",
+    "prompt": "Which former chairman of Enron Corporation was convicted of multiple counts of fraud and conspiracy related to the company's collapse?",
+    "answers": [
+      "Martha Stewart",
+      "Kenneth Lay",
+      "Jeffrey Skilling",
+      "Bernie Ebbers"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0093",
+    "categoryId": "final_podium",
+    "prompt": "What infamous American fraudster and stock market manipulator was convicted of numerous offenses related to his investment firm, Stratton Oakmont?",
+    "answers": [
+      "Frank Abagnale",
+      "Charles Ponzi",
+      "Ivan Boesky",
+      "Jordan Belfort"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0094",
+    "categoryId": "final_podium",
+    "prompt": "Who was the mastermind behind the largest insider trading scandal in U.S. history, involving illegal activities at the hedge fund SAC Capital Advisors?",
+    "answers": [
+      "Michael Milken",
+      "Bernard Madoff",
+      "Raj Rajaratnam",
+      "Steven Cohen"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0095",
+    "categoryId": "final_podium",
+    "prompt": "Which American businesswoman was convicted of conspiracy, fraud, and obstruction of justice related to the collapse of her company, Theranos?",
+    "answers": [
+      "Elizabeth Holmes",
+      "Martha Stewart",
+      "Sherron Watkins",
+      "Leona Helmsley"
+    ],
+    "correct": "A",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0096",
+    "categoryId": "final_podium",
+    "prompt": "What former CEO of WorldCom was convicted of orchestrating one of the largest accounting frauds in U.S. history, resulting in the company's bankruptcy?",
+    "answers": [
+      "Richard Scrushy",
+      "Bernard Ebbers",
+      "Jeff Skilling",
+      "Andrew Fastow"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0097",
+    "categoryId": "final_podium",
+    "prompt": "Who was the American businesswoman convicted of multiple charges related to the collapse of her energy trading company, Enron Corporation?",
+    "answers": [
+      "Michelle Malkin",
+      "Elizabeth Holmes",
+      "Martha Stewart",
+      "Rebecca Mark"
+    ],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0098",
+    "categoryId": "final_podium",
+    "prompt": "Who was the American con artist who posed as an airline pilot, doctor, and lawyer, among other professions, in the 1960s and 1970s, inspiring the movie \"Catch Me If You Can\"?",
+    "answers": [
+      "Gregor MacGregor",
+      "Victor Lustig",
+      "Frank Abagnale",
+      "Carlos Kaiser"
+    ],
+    "correct": "C",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0099",
+    "categoryId": "final_podium",
+    "prompt": "What American mobster, known as \"Scarface,\" was the leader of the Chicago Outfit during the Prohibition era and was eventually convicted of tax evasion in 1931?",
+    "answers": ["John Gotti", "Lucky Luciano", "Bugsy Siegel", "Al Capone"],
+    "correct": "D",
+    "timeLimitMs": 5000
+  },
+  {
+    "id": "final_podium_0100",
+    "categoryId": "final_podium",
+    "prompt": "In 1971, a group of thieves tunneled into the headquarters of the Lloyds Bank in London's Marylebone district and stole valuables worth millions of pounds. What was the nickname given to this notorious heist?",
+    "answers": [
+      "The Hatton Garden Heist",
+      "The Baker Street Robbery",
+      "The Lufthansa Heist",
+      "The Brink's-Mat Robbery"
+    ],
+    "correct": "B",
+    "timeLimitMs": 5000
+  }
+]

@@ -38,7 +38,8 @@
         grid-template-columns: 1fr 1fr;
         gap: 10px;
       }
-      .choice {
+      .choice,
+      .finalChoice {
         font-size: 18px;
         font-weight: 800;
         padding: 16px;
@@ -47,7 +48,8 @@
         white-space: normal;
         text-align: left;
       }
-      .choice .letter {
+      .choice .letter,
+      .finalChoice .letter {
         display: inline-block;
         font-weight: 900;
         margin-right: 8px;
@@ -64,7 +66,8 @@
       .small {
         font-size: 13px;
       }
-      #questionText {
+      #questionText,
+      #finalQuestionText {
         white-space: pre-wrap;
       }
       .timer {
@@ -72,7 +75,7 @@
         letter-spacing: 0.3px;
       }
 
-      /* NEW: options pill */
+      /* options pill */
       .pill {
         display: inline-block;
         padding: 2px 8px;
@@ -81,6 +84,32 @@
         font-size: 12px;
         color: #444;
         margin-left: 6px;
+      }
+
+      /* FINAL: podium bar */
+      .podiumRow {
+        margin-top: 10px;
+      }
+      .podiumLabel {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .barWrap {
+        width: 100%;
+        height: 16px;
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        overflow: hidden;
+        margin-top: 6px;
+        background: #fafafa;
+      }
+      .barFill {
+        height: 100%;
+        width: 0%;
+        background: #222;
+        transition: width 80ms linear;
       }
     </style>
   </head>
@@ -148,6 +177,42 @@
       <div id="fastestMsg" class="muted msg"></div>
     </div>
 
+    <!-- FINAL PODIUM -->
+    <div id="finalCard" class="card hidden">
+      <div class="muted">Final Round</div>
+      <h2 id="finalHeader">FINAL PODIUM</h2>
+      <div id="finalCountdown" class="muted msg small timer"></div>
+
+      <div class="podiumRow">
+        <div class="podiumLabel muted small">
+          <span>Your podium</span>
+          <span id="podiumPct">0%</span>
+        </div>
+        <div class="barWrap">
+          <div id="podiumFill" class="barFill"></div>
+        </div>
+      </div>
+
+      <div id="finalQuestionText" class="muted msg"></div>
+
+      <div class="grid msg">
+        <button class="finalChoice" data-choice="A">
+          <span class="letter">A</span><span class="txt" data-txt="A">—</span>
+        </button>
+        <button class="finalChoice" data-choice="B">
+          <span class="letter">B</span><span class="txt" data-txt="B">—</span>
+        </button>
+        <button class="finalChoice" data-choice="C">
+          <span class="letter">C</span><span class="txt" data-txt="C">—</span>
+        </button>
+        <button class="finalChoice" data-choice="D">
+          <span class="letter">D</span><span class="txt" data-txt="D">—</span>
+        </button>
+      </div>
+
+      <div id="finalMsg" class="muted msg"></div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
       const socket = io();
@@ -157,10 +222,15 @@
       const LS_NAME = "gsp_displayName";
       const LS_TOKEN = "gsp_playerToken";
 
+      // FINAL fall rate (client-side visual approximation)
+      // Keep this in sync with server FINAL_FALL_RATE_PER_SEC.
+      const FINAL_FALL_RATE_PER_SEC = 0.1;
+
       const joinCard = document.getElementById("joinCard");
       const waitingCard = document.getElementById("waitingCard");
       const pickCard = document.getElementById("pickCard");
       const fastestCard = document.getElementById("fastestCard");
+      const finalCard = document.getElementById("finalCard");
 
       const roomCodeInput = document.getElementById("roomCode");
       const nameInput = document.getElementById("displayName");
@@ -174,39 +244,62 @@
       const pickHelp = document.getElementById("pickHelp");
       const pickOptionsEl = document.getElementById("pickOptions");
       const pickMsg = document.getElementById("pickMsg");
+      const pickCountdownEl = document.getElementById("pickCountdown");
 
       const fastestHeader = document.getElementById("fastestHeader");
       const questionText = document.getElementById("questionText");
       const fastestMsg = document.getElementById("fastestMsg");
-
-      const pickCountdownEl = document.getElementById("pickCountdown");
       const fastestCountdownEl = document.getElementById("fastestCountdown");
+
+      const finalHeader = document.getElementById("finalHeader");
+      const finalQuestionText = document.getElementById("finalQuestionText");
+      const finalMsg = document.getElementById("finalMsg");
+      const finalCountdownEl = document.getElementById("finalCountdown");
+
+      const podiumFill = document.getElementById("podiumFill");
+      const podiumPct = document.getElementById("podiumPct");
 
       let myRoomCode = null;
       let myPlayerId = null;
       let myPlayerToken = null;
       let myAvatarId = null;
 
-      // NEW: options snapshot
+      // options snapshot
       let roomOptions = {
         contentRating: "standard",
         middleCount: 0,
         selectedMiddleGames: null,
       };
 
-      // current question cache (from server:r1_question_presented)
+      // Round 1 question cache
       let currentQuestion = null; // { questionId, prompt, answers }
-
-      // fastest snapshot cache (from server:r1_fastest_state)
       let fastestState = null; // { isOpen, winner, lockedOutPlayerIds, answeredPlayerIds, questionId }
 
       // category pick cache
       let currentPick = null; // { chooserPlayerId, chooserDisplayName, options: [{id,name}], timeoutMs, endsAt? }
       let pickLocked = false;
 
+      // Final round cache
+      let finalQuestion = null; // { questionId, prompt, answers }
+      let finalLocked = false; // did I submit an answer for this question?
+      let finalEndsAt = null;
+
+      // Final: live bar state
+      let finalHeights = {}; // pid -> 0..1
+      let finalAliveIds = [];
+      let finalPhase = null;
+
+      // For client-side falling: capture my height at "start" and count down
+      let myFinalHeightBase = null; // number 0..1
+      let myFinalHeightBaseAt = null; // epoch ms
+
       // deadline-based countdowns (epoch ms)
       let pickEndsAt = null;
       let questionEndsAt = null;
+
+      function clamp(n, min, max) {
+        return Math.max(min, Math.min(max, n));
+      }
 
       function setStateLabel(state) {
         stateLabelEl.textContent = state || "UNKNOWN";
@@ -218,14 +311,20 @@
       }
 
       function showOnly(el) {
-        [joinCard, waitingCard, pickCard, fastestCard].forEach((c) =>
+        [joinCard, waitingCard, pickCard, fastestCard, finalCard].forEach((c) =>
           c.classList.add("hidden")
         );
         el.classList.remove("hidden");
       }
 
       function setChoiceButtonsEnabled(enabled) {
-        document.querySelectorAll(".choice").forEach((btn) => {
+        fastestCard.querySelectorAll(".choice").forEach((btn) => {
+          btn.disabled = !enabled;
+        });
+      }
+
+      function setFinalButtonsEnabled(enabled) {
+        finalCard.querySelectorAll(".finalChoice").forEach((btn) => {
           btn.disabled = !enabled;
         });
       }
@@ -268,6 +367,22 @@
         pickLocked = false;
         clearPickUI();
 
+        finalQuestion = null;
+        finalLocked = false;
+        finalEndsAt = null;
+
+        finalHeights = {};
+        finalAliveIds = [];
+        finalPhase = null;
+
+        myFinalHeightBase = null;
+        myFinalHeightBaseAt = null;
+        setPodiumUI(0);
+
+        finalHeader.textContent = "FINAL PODIUM";
+        finalMsg.textContent = "";
+        finalQuestionText.textContent = "";
+
         pickEndsAt = null;
         questionEndsAt = null;
         fastestCountdownEl.textContent = "";
@@ -296,6 +411,44 @@
         return `${Math.ceil(ms / 1000)}s`;
       }
 
+      function setPodiumUI(height01) {
+        const h = clamp(Number(height01) || 0, 0, 1);
+        const pct = Math.round(h * 100);
+        podiumFill.style.width = `${pct}%`;
+        podiumPct.textContent = `${pct}%`;
+      }
+
+      function computeMyLiveFinalHeight() {
+        // If we don't have base, fall back to snapshot
+        if (
+          !Number.isFinite(myFinalHeightBase) ||
+          !Number.isFinite(myFinalHeightBaseAt)
+        ) {
+          const snap = finalHeights?.[myPlayerId];
+          return Number.isFinite(snap) ? snap : 0;
+        }
+
+        // Only “fall” during open question, while alive, and if I haven’t answered
+        const isAlive =
+          myPlayerId &&
+          Array.isArray(finalAliveIds) &&
+          finalAliveIds.includes(myPlayerId);
+        const shouldFall =
+          (finalPhase === "question_open" ||
+            finalPhase === "FINAL_QUESTION_OPEN") &&
+          isAlive &&
+          !finalLocked;
+
+        if (!shouldFall) {
+          const snap = finalHeights?.[myPlayerId];
+          return Number.isFinite(snap) ? snap : myFinalHeightBase;
+        }
+
+        const dtSec = Math.max(0, (Date.now() - myFinalHeightBaseAt) / 1000);
+        const fallen = myFinalHeightBase - FINAL_FALL_RATE_PER_SEC * dtSec;
+        return clamp(fallen, 0, 1);
+      }
+
       function tickCountdowns() {
         // Category pick countdown
         if (
@@ -310,7 +463,7 @@
           pickCountdownEl.textContent = "";
         }
 
-        // Question countdown
+        // Round 1 question countdown
         if (
           !fastestCard.classList.contains("hidden") &&
           Number.isFinite(questionEndsAt)
@@ -321,6 +474,24 @@
           else fastestCountdownEl.textContent = `Time: ${fmtSeconds(left)}`;
         } else {
           fastestCountdownEl.textContent = "";
+        }
+
+        // Final countdown
+        if (
+          !finalCard.classList.contains("hidden") &&
+          Number.isFinite(finalEndsAt)
+        ) {
+          const left = msLeft(finalEndsAt);
+          if (left == null) finalCountdownEl.textContent = "";
+          else if (left <= 0) finalCountdownEl.textContent = "Time: 0s";
+          else finalCountdownEl.textContent = `Time: ${fmtSeconds(left)}`;
+        } else {
+          finalCountdownEl.textContent = "";
+        }
+
+        // Final: live bar animation
+        if (!finalCard.classList.contains("hidden")) {
+          setPodiumUI(computeMyLiveFinalHeight());
         }
       }
 
@@ -403,26 +574,81 @@
         }
       }
 
-      function renderAnswerButtonsFromQuestion(q) {
-        const letters = ["A", "B", "C", "D"];
-        let answers = [];
+      // --- ANSWER NORMALIZATION (supports more JSON shapes)
+      function normalizeAnswersTo4(rawAnswers) {
+        const out = [null, null, null, null];
+        const idxByLetter = { A: 0, B: 1, C: 2, D: 3 };
 
-        if (Array.isArray(q?.answers)) {
-          answers = q.answers;
-        } else if (q?.answers && typeof q.answers === "object") {
-          answers = [
-            q.answers.A ?? q.answers.a,
-            q.answers.B ?? q.answers.b,
-            q.answers.C ?? q.answers.c,
-            q.answers.D ?? q.answers.d,
-          ];
+        if (!rawAnswers) return out;
+
+        // 1) answers: {A,B,C,D}
+        if (
+          rawAnswers &&
+          typeof rawAnswers === "object" &&
+          !Array.isArray(rawAnswers)
+        ) {
+          const a = rawAnswers.A ?? rawAnswers.a;
+          const b = rawAnswers.B ?? rawAnswers.b;
+          const c = rawAnswers.C ?? rawAnswers.c;
+          const d = rawAnswers.D ?? rawAnswers.d;
+          return [a, b, c, d].map((v) => (v == null ? null : String(v)));
         }
 
+        // 2) answers: ["...","...","...","..."]
+        if (Array.isArray(rawAnswers)) {
+          // If array of strings (or mostly string-ish)
+          if (
+            rawAnswers.every(
+              (x) => typeof x === "string" || typeof x === "number"
+            )
+          ) {
+            return rawAnswers
+              .slice(0, 4)
+              .map((v) => (v == null ? null : String(v)));
+          }
+
+          // If array of objects: [{label:"A", text:"..."}, ...] OR [{text:"..."}, ...]
+          for (let i = 0; i < rawAnswers.length; i++) {
+            const item = rawAnswers[i];
+            if (!item || typeof item !== "object") continue;
+
+            const labelRaw =
+              item.label ?? item.letter ?? item.choice ?? item.key ?? null;
+            const textRaw =
+              item.text ?? item.value ?? item.answer ?? item.name ?? null;
+
+            if (labelRaw) {
+              const L = String(labelRaw).trim().toUpperCase();
+              if (idxByLetter[L] != null) {
+                out[idxByLetter[L]] = textRaw != null ? String(textRaw) : null;
+                continue;
+              }
+            }
+
+            // fallback: positional
+            if (i < 4 && out[i] == null) {
+              out[i] = textRaw != null ? String(textRaw) : null;
+            }
+          }
+
+          return out;
+        }
+
+        return out;
+      }
+
+      function renderAnswerButtonsFromQuestion(rootEl, q) {
+        const answers = normalizeAnswersTo4(q?.answers);
+        const letters = ["A", "B", "C", "D"];
+
         letters.forEach((L, i) => {
-          const span = document.querySelector(`[data-txt="${L}"]`);
+          // IMPORTANT: scope to the card, not document
+          const span = rootEl.querySelector(`[data-txt="${L}"]`);
           if (!span) return;
+
+          const v = answers[i];
           span.textContent =
-            answers[i] != null && answers[i] !== "" ? String(answers[i]) : "—";
+            v != null && String(v).trim() !== "" ? String(v) : "—";
         });
       }
 
@@ -445,7 +671,7 @@
 
         if (currentQuestion) {
           questionText.textContent = formatPromptOnly(currentQuestion);
-          renderAnswerButtonsFromQuestion(currentQuestion);
+          renderAnswerButtonsFromQuestion(fastestCard, currentQuestion);
         } else {
           questionText.textContent = "(question loading…)";
         }
@@ -481,6 +707,25 @@
         } else {
           fastestMsg.textContent = "Tap A / B / C / D — first correct wins.";
           setChoiceButtonsEnabled(true);
+        }
+      }
+
+      function syncFinalUI() {
+        if (finalCard.classList.contains("hidden")) return;
+
+        if (finalQuestion) {
+          finalQuestionText.textContent = formatPromptOnly(finalQuestion);
+          renderAnswerButtonsFromQuestion(finalCard, finalQuestion);
+        } else {
+          finalQuestionText.textContent = "(question loading…)";
+        }
+
+        if (finalLocked) {
+          finalMsg.textContent = finalMsg.textContent || "Locked in ✅";
+          setFinalButtonsEnabled(false);
+        } else {
+          finalMsg.textContent = finalMsg.textContent || "Choose wisely.";
+          setFinalButtonsEnabled(true);
         }
       }
 
@@ -561,15 +806,6 @@
               ack.displayName
             }!${myAvatarId ? " [" + myAvatarId + "]" : ""}`;
             setStateLabel(ack.state || "UNKNOWN");
-
-            if (ack.state === "ROUND_1_CATEGORY_PICK") {
-              showOnly(pickCard);
-            } else if (ack.state === "ROUND_1_QUESTION_OPEN") {
-              showOnly(fastestCard);
-              syncFastestUI();
-            } else if (ack.state === "ROUND_1_INTRO") {
-              joinedLabel.textContent = "Round 1 starting…";
-            }
           }
         );
       }
@@ -578,7 +814,6 @@
       // Options snapshot (authoritative)
       // --------------------
       socket.on("server:options_updated", (payload = {}) => {
-        // Ignore if we're not in this room yet (but still allow it to populate UI after join)
         if (payload?.roomCode && myRoomCode && payload.roomCode !== myRoomCode)
           return;
 
@@ -589,7 +824,7 @@
       });
 
       // --------------------
-      // Question presented (prompt + answers)
+      // Round 1: Question presented
       // --------------------
       socket.on("server:r1_question_presented", (payload) => {
         const { questionId, prompt, answers } = payload || {};
@@ -610,12 +845,12 @@
         }
 
         questionText.textContent = formatPromptOnly(currentQuestion);
-        renderAnswerButtonsFromQuestion(currentQuestion);
+        renderAnswerButtonsFromQuestion(fastestCard, currentQuestion);
         syncFastestUI();
       });
 
       // --------------------
-      // Fastest snapshot state (winner / locked out list)
+      // Round 1: Fastest snapshot state
       // --------------------
       socket.on("server:r1_fastest_state", (payload) => {
         fastestState = payload || null;
@@ -629,7 +864,7 @@
       });
 
       // --------------------
-      // Category pick event
+      // Round 1: Category pick
       // --------------------
       socket.on("server:r1_category_pick", (payload) => {
         currentPick = {
@@ -647,74 +882,113 @@
       // --------------------
       // State changes
       // --------------------
-      socket.on("server:state_changed", ({ state, r1, options } = {}) => {
-        setStateLabel(state);
+      socket.on(
+        "server:state_changed",
+        ({ state, r1, final, options } = {}) => {
+          setStateLabel(state);
 
-        // Keep options in sync if server includes them here too
-        if (options) {
-          roomOptions = options;
-          applyOptionsToUI();
-        }
+          if (options) {
+            roomOptions = options;
+            applyOptionsToUI();
+          }
 
-        const hasSession = !!(myRoomCode || localStorage.getItem(LS_ROOM));
-        if (!hasSession) return;
+          const hasSession = !!(myRoomCode || localStorage.getItem(LS_ROOM));
+          if (!hasSession) return;
 
-        if (r1) {
-          if (Number.isFinite(r1.pickEndsAt)) pickEndsAt = r1.pickEndsAt;
-          else if (r1.pickEndsAt === null) pickEndsAt = null;
+          // Round 1 deadlines
+          if (r1) {
+            if (Number.isFinite(r1.pickEndsAt)) pickEndsAt = r1.pickEndsAt;
+            else if (r1.pickEndsAt === null) pickEndsAt = null;
 
-          if (Number.isFinite(r1.questionEndsAt))
-            questionEndsAt = r1.questionEndsAt;
-          else if (r1.questionEndsAt === null) questionEndsAt = null;
-        }
+            if (Number.isFinite(r1.questionEndsAt))
+              questionEndsAt = r1.questionEndsAt;
+            else if (r1.questionEndsAt === null) questionEndsAt = null;
+          }
 
-        if (state === "ROUND_1_CATEGORY_PICK") {
-          const detailed = r1?.pickOptionsDetailed;
-          const fallback = r1?.pickOptions;
+          // Final snapshot (useful on refresh/rejoin)
+          if (final) {
+            finalHeights = final.heights || finalHeights;
+            finalAliveIds = final.alivePlayerIds || finalAliveIds;
+            finalPhase = final.phase || finalPhase;
 
-          currentPick = {
-            chooserPlayerId: r1?.chooserPlayerId ?? null,
-            chooserDisplayName: r1?.chooserDisplayName ?? null,
-            options: detailed && detailed.length ? detailed : fallback || [],
-            timeoutMs: currentPick?.timeoutMs || null,
-            endsAt: Number.isFinite(r1?.pickEndsAt)
-              ? r1.pickEndsAt
-              : currentPick?.endsAt ?? null,
-          };
+            if (Number.isFinite(final.endsAt)) finalEndsAt = final.endsAt;
+            else if (final.endsAt === null) finalEndsAt = null;
 
-          showOnly(pickCard);
-          renderPickUI();
-          return;
-        }
+            // Rebuild question if present
+            if (final.questionId && (final.prompt || final.answers)) {
+              finalQuestion = {
+                questionId: final.questionId,
+                prompt: final.prompt ?? "",
+                answers: final.answers ?? null,
+              };
+            }
+          }
 
-        if (state === "ROUND_1_QUESTION_OPEN") {
-          showOnly(fastestCard);
-          syncFastestUI();
-          return;
-        }
+          // Round 1 UI
+          if (state === "ROUND_1_CATEGORY_PICK") {
+            const detailed = r1?.pickOptionsDetailed;
+            const fallback = r1?.pickOptions;
 
-        // leaving pick/question screens
-        currentPick = null;
-        clearPickUI();
-        pickEndsAt = null;
-        questionEndsAt = null;
+            currentPick = {
+              chooserPlayerId: r1?.chooserPlayerId ?? null,
+              chooserDisplayName: r1?.chooserDisplayName ?? null,
+              options: detailed && detailed.length ? detailed : fallback || [],
+              timeoutMs: currentPick?.timeoutMs || null,
+              endsAt: Number.isFinite(r1?.pickEndsAt)
+                ? r1.pickEndsAt
+                : currentPick?.endsAt ?? null,
+            };
 
-        if (state === "ROUND_1_INTRO") {
+            showOnly(pickCard);
+            renderPickUI();
+            return;
+          }
+
+          if (state === "ROUND_1_QUESTION_OPEN") {
+            showOnly(fastestCard);
+            syncFastestUI();
+            return;
+          }
+
+          // Final UI
+          if (state === "FINAL_INTRO") {
+            showOnly(waitingCard);
+            joinedLabel.textContent = "Final round starting…";
+            return;
+          }
+          if (
+            state === "FINAL_QUESTION_OPEN" ||
+            state === "FINAL_REVEAL" ||
+            state === "FINAL_COMPLETE"
+          ) {
+            showOnly(finalCard);
+            syncFinalUI();
+            return;
+          }
+
+          // leaving pick/question screens
+          currentPick = null;
+          clearPickUI();
+          pickEndsAt = null;
+          questionEndsAt = null;
+
+          if (state === "ROUND_1_INTRO") {
+            showOnly(waitingCard);
+            joinedLabel.textContent = "Round 1 starting…";
+            return;
+          }
+          if (state === "ROUND_1_COMPLETE") {
+            showOnly(waitingCard);
+            joinedLabel.textContent = "Round 1 complete!";
+            return;
+          }
+
           showOnly(waitingCard);
-          joinedLabel.textContent = "Round 1 starting…";
-          return;
         }
-        if (state === "ROUND_1_COMPLETE") {
-          showOnly(waitingCard);
-          joinedLabel.textContent = "Round 1 complete!";
-          return;
-        }
-
-        showOnly(waitingCard);
-      });
+      );
 
       // --------------------
-      // Wrong tap -> locked out
+      // Round 1: Wrong tap -> locked out
       // --------------------
       socket.on(
         "server:r1_answer_locked_out",
@@ -735,7 +1009,7 @@
       );
 
       // --------------------
-      // Winner declared
+      // Round 1: Winner declared
       // --------------------
       socket.on(
         "server:r1_answer_winner",
@@ -765,7 +1039,7 @@
       );
 
       // --------------------
-      // Timeout (no winner)
+      // Round 1: Timeout (no winner)
       // --------------------
       socket.on(
         "server:r1_answer_timeout",
@@ -787,9 +1061,9 @@
       );
 
       // --------------------
-      // Tapping an answer
+      // Round 1: Tapping an answer
       // --------------------
-      document.querySelectorAll(".choice").forEach((btn) => {
+      fastestCard.querySelectorAll(".choice").forEach((btn) => {
         btn.addEventListener("click", () => {
           const choice = btn.getAttribute("data-choice");
           if (!choice) return;
@@ -823,10 +1097,150 @@
       });
 
       // --------------------
-      // Kicked by host (lobby-only, but handle anytime)
+      // FINAL: Question presented
+      // --------------------
+      socket.on("server:final_question_presented", (payload = {}) => {
+        const answersRaw =
+          payload.answers ?? payload.options ?? payload.choices ?? null;
+
+        finalQuestion = {
+          questionId: payload.questionId ?? null,
+          prompt: payload.prompt ?? "",
+          answers: answersRaw,
+        };
+
+        finalLocked = false;
+
+        finalHeights = payload.heights || finalHeights;
+        finalAliveIds = payload.alivePlayerIds || finalAliveIds;
+        finalPhase = "question_open";
+
+        // Reset my client-side falling base at question start
+        const snap = finalHeights?.[myPlayerId];
+        myFinalHeightBase = Number.isFinite(snap) ? snap : 0;
+        myFinalHeightBaseAt = Date.now();
+
+        if (Number.isFinite(payload.endsAt)) finalEndsAt = payload.endsAt;
+        else finalEndsAt = null;
+
+        finalHeader.textContent = "FINAL PODIUM";
+        finalMsg.textContent = "Choose wisely.";
+        showOnly(finalCard);
+
+        finalQuestionText.textContent = formatPromptOnly(finalQuestion);
+        renderAnswerButtonsFromQuestion(finalCard, finalQuestion);
+
+        setFinalButtonsEnabled(true);
+      });
+
+      // --------------------
+      // FINAL: server confirms receipt for THIS player
+      // --------------------
+      socket.on("server:final_answer_received", (payload = {}) => {
+        if (!myPlayerId) return;
+        if (payload.playerId && payload.playerId !== myPlayerId) return;
+
+        finalLocked = true;
+        finalMsg.textContent = "Locked in ✅";
+        setFinalButtonsEnabled(false);
+
+        // Stop falling visually at the height we are now
+        const live = computeMyLiveFinalHeight();
+        finalHeights[myPlayerId] = live;
+        myFinalHeightBase = live;
+        myFinalHeightBaseAt = Date.now();
+      });
+
+      // --------------------
+      // FINAL: Reveal phase
+      // --------------------
+      socket.on("server:final_reveal", (payload = {}) => {
+        finalEndsAt = null;
+        finalPhase = "reveal";
+
+        if (payload.heights) finalHeights = payload.heights;
+        if (payload.alivePlayerIds) finalAliveIds = payload.alivePlayerIds;
+
+        // Snap my bar to server truth after reveal
+        if (myPlayerId && Number.isFinite(finalHeights?.[myPlayerId])) {
+          myFinalHeightBase = finalHeights[myPlayerId];
+          myFinalHeightBaseAt = Date.now();
+        }
+
+        const alive = Array.isArray(payload.alivePlayerIds)
+          ? payload.alivePlayerIds.includes(myPlayerId)
+          : true;
+
+        finalLocked = true;
+        setFinalButtonsEnabled(false);
+
+        if (!alive) {
+          finalHeader.textContent = "ELIMINATED";
+          finalMsg.textContent = "You fell off 💀";
+          setPodiumUI(0);
+        } else {
+          finalMsg.textContent = "Still alive…";
+        }
+      });
+
+      // --------------------
+      // FINAL: Complete
+      // --------------------
+      socket.on("server:final_complete", (payload = {}) => {
+        finalEndsAt = null;
+        finalPhase = "complete";
+
+        if (payload.heights) finalHeights = payload.heights;
+
+        if (payload.winnerPlayerId && payload.winnerPlayerId === myPlayerId) {
+          finalHeader.textContent = "WINNER";
+          finalMsg.textContent = "YOU WIN 🎉";
+        } else {
+          finalHeader.textContent = "GAME OVER";
+          finalMsg.textContent = "Game over.";
+        }
+
+        finalLocked = true;
+        setFinalButtonsEnabled(false);
+
+        // Snap bar
+        const snap = finalHeights?.[myPlayerId];
+        setPodiumUI(Number.isFinite(snap) ? snap : 0);
+      });
+
+      // --------------------
+      // FINAL: Tapping an answer
+      // --------------------
+      finalCard.querySelectorAll(".finalChoice").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (!myRoomCode || !myPlayerId) return;
+          if (!finalQuestion || finalLocked) return;
+
+          const choice = btn.getAttribute("data-choice");
+          if (!choice) return;
+
+          finalLocked = true;
+          finalMsg.textContent = "Locked in…";
+          setFinalButtonsEnabled(false);
+
+          // Stop falling visually at the current live height
+          const live = computeMyLiveFinalHeight();
+          finalHeights[myPlayerId] = live;
+          myFinalHeightBase = live;
+          myFinalHeightBaseAt = Date.now();
+
+          socket.emit("phone:final_answer_tap", {
+            roomCode: myRoomCode,
+            playerId: myPlayerId,
+            choice,
+          });
+        });
+      });
+
+      // --------------------
+      // Kicked by host
       // --------------------
       socket.on("server:player_kicked", (payload = {}) => {
-        // If roomCode is present and doesn't match, ignore
         if (payload?.roomCode && myRoomCode && payload.roomCode !== myRoomCode)
           return;
 

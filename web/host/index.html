@@ -85,7 +85,7 @@
         letter-spacing: 0.3px;
       }
 
-      /* NEW: options UI */
+      /* options UI */
       .row2 {
         display: flex;
         gap: 10px;
@@ -153,6 +153,73 @@
         font-size: 12px;
         color: #444;
         margin-left: 6px;
+      }
+
+      /* -----------------------
+         Final Podium (NEW)
+      ------------------------*/
+      .finalWrap {
+        display: none;
+      }
+      .finalQuestion {
+        font-weight: 750;
+        line-height: 1.25;
+      }
+      .finalGrid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .podiumRow {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .podiumName {
+        width: 140px;
+        font-weight: 700;
+        font-size: 13px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .podiumBarOuter {
+        flex: 1;
+        height: 18px;
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        background: #fafafa;
+        overflow: hidden;
+      }
+      .podiumBarInner {
+        height: 100%;
+        width: 0%;
+        background: #111;
+      }
+      .podiumPct {
+        width: 44px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: #444;
+        font-size: 12px;
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        font-size: 12px;
+        color: #444;
+        margin-left: 6px;
+      }
+      .badge.answered {
+        border-color: #111;
+        color: #111;
+      }
+      .badge.dead {
+        border-color: #bbb;
+        color: #999;
       }
     </style>
   </head>
@@ -279,6 +346,37 @@
         <div class="muted spacer">Last Result</div>
         <div id="lastResult" class="muted mono">(none)</div>
       </div>
+
+      <!-- FINAL PODIUM (NEW) -->
+      <div class="card finalWrap" id="finalCard">
+        <div class="muted">Final Podium</div>
+
+        <div class="hud spacer">
+          <div class="kv">
+            <div class="k">Phase</div>
+            <div class="v" id="finalPhase">—</div>
+          </div>
+          <div class="kv">
+            <div class="k">Timer</div>
+            <div class="v timer" id="finalTimer">—</div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="muted">Question</div>
+        <div id="finalQuestion" class="finalQuestion spacer">(waiting)</div>
+
+        <div class="hr"></div>
+
+        <div class="muted">Podiums</div>
+        <div id="finalPodiums" class="finalGrid"></div>
+
+        <div class="hr"></div>
+
+        <div class="muted">Final Log</div>
+        <div id="finalLog" class="muted mono spacer">(none)</div>
+      </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -304,7 +402,7 @@
       const r1PickOptionsEl = document.getElementById("r1PickOptions");
       const r1QuestionTimerEl = document.getElementById("r1QuestionTimer");
 
-      // NEW: options elements
+      // options elements
       const optionsCardEl = document.getElementById("optionsCard");
       const optionsLockedNoticeEl = document.getElementById(
         "optionsLockedNotice"
@@ -318,17 +416,28 @@
 
       const kickListEl = document.getElementById("kickList");
 
+      // FINAL elements
+      const finalCardEl = document.getElementById("finalCard");
+      const finalPhaseEl = document.getElementById("finalPhase");
+      const finalTimerEl = document.getElementById("finalTimer");
+      const finalQuestionEl = document.getElementById("finalQuestion");
+      const finalPodiumsEl = document.getElementById("finalPodiums");
+      const finalLogEl = document.getElementById("finalLog");
+
       let currentRoomCode = null;
 
       // countdown deadlines (epoch ms)
       let pickEndsAt = null;
       let questionEndsAt = null;
 
+      // FINAL countdown
+      let finalEndsAt = null;
+
       // pick UI helper
       let pickStatusBaseText = "(not active)";
       let pickActive = false;
 
-      // NEW: options + status
+      // options + status
       let gameStatus = "lobby"; // "lobby" | "in_progress" | "finished"
       let roomOptions = {
         contentRating: "standard",
@@ -336,6 +445,15 @@
         selectedMiddleGames: null,
       };
       let availableMiddleGames = [];
+
+      // FINAL state cache (for render)
+      let finalState = {
+        phase: null,
+        prompt: null,
+        heights: {},
+        alivePlayerIds: [],
+        answered: {},
+      };
 
       function setStateLabel(state) {
         stateLabelEl.textContent = state || "UNKNOWN";
@@ -346,12 +464,9 @@
         gameStatusPillEl.textContent = gameStatus;
         const inLobby = gameStatus === "lobby";
 
-        // Options screen inaccessible once started
         optionsCardEl.style.display = inLobby ? "block" : "none";
         optionsLockedNoticeEl.style.display = inLobby ? "none" : "block";
 
-        // Also disable kick controls if we ever decide to leave it visible
-        // (currently we fully hide, but keep safe)
         optFamilyEl.disabled = !inLobby;
         optMiddleCountEl.disabled = !inLobby;
       }
@@ -379,7 +494,6 @@
           playerListEl.appendChild(li);
         });
 
-        // Keep kick list in sync
         renderKickList(sorted);
       }
 
@@ -515,22 +629,18 @@
       }
 
       function applyOptionsToUI() {
-        // contentRating -> checkbox
         const isFamily = roomOptions.contentRating === "family";
         optFamilyEl.checked = isFamily;
         optFamilyLabelEl.textContent = isFamily ? "On" : "Off";
 
-        // middleCount selector
         const cap = Math.min(3, availableMiddleGames.length);
         middleCapHintEl.textContent = `(available: ${availableMiddleGames.length}, max: ${cap})`;
 
-        // clamp UI options list availability
         [...optMiddleCountEl.options].forEach((o) => {
           const v = Number(o.value);
           o.disabled = v > cap;
         });
 
-        // ensure selected value is valid
         const current = Number(roomOptions.middleCount) || 0;
         const clamped = Math.max(0, Math.min(current, cap));
         optMiddleCountEl.value = String(clamped);
@@ -548,7 +658,6 @@
               statusEl.textContent = `Options update failed: ${
                 ack?.reason || "UNKNOWN"
               }`;
-              // bounce UI back to last known server truth
               applyOptionsToUI();
               return;
             }
@@ -581,6 +690,117 @@
         );
       }
 
+      function showFinalUI(show) {
+        finalCardEl.style.display = show ? "block" : "none";
+      }
+
+      function resetFinalUI() {
+        finalEndsAt = null;
+        finalState = {
+          phase: null,
+          prompt: null,
+          heights: {},
+          alivePlayerIds: [],
+          answered: {},
+        };
+        finalPhaseEl.textContent = "—";
+        finalTimerEl.textContent = "—";
+        finalQuestionEl.textContent = "(waiting)";
+        finalPodiumsEl.innerHTML = "";
+        finalLogEl.textContent = "(none)";
+        showFinalUI(false);
+      }
+
+      function playerNameFromList(playerId) {
+        // Try to read from current visible list items (best effort), otherwise show id
+        return playerId;
+      }
+
+      function renderFinalPodiums(players) {
+        // players: [{playerId, displayName, ...}] from cached list if we have it
+        const alive = new Set(finalState.alivePlayerIds || []);
+        const heights = finalState.heights || {};
+        const answered = finalState.answered || {};
+
+        // pick an ordering:
+        // - alive first, sorted by height desc
+        // - then dead, sorted by height desc
+        const ids = Object.keys(heights);
+
+        const rows = ids
+          .map((pid) => {
+            const h = Number.isFinite(heights[pid]) ? heights[pid] : 0;
+            const isAlive = alive.has(pid);
+            return { pid, h, isAlive };
+          })
+          .sort((a, b) => {
+            if (a.isAlive !== b.isAlive) return a.isAlive ? -1 : 1;
+            return (b.h ?? 0) - (a.h ?? 0);
+          });
+
+        // map pid -> displayName (from player list)
+        const nameMap = {};
+        (players || []).forEach((p) => (nameMap[p.playerId] = p.displayName));
+
+        finalPodiumsEl.innerHTML = "";
+        if (rows.length === 0) {
+          const div = document.createElement("div");
+          div.className = "muted";
+          div.textContent = "(no podium data yet)";
+          finalPodiumsEl.appendChild(div);
+          return;
+        }
+
+        rows.forEach((r) => {
+          const pct = clamp01(r.h) * 100;
+
+          const row = document.createElement("div");
+          row.className = "podiumRow";
+
+          const name = document.createElement("div");
+          name.className = "podiumName";
+          name.textContent = nameMap[r.pid] || r.pid;
+
+          const badge = document.createElement("span");
+          badge.className = "badge";
+          if (!r.isAlive) {
+            badge.classList.add("dead");
+            badge.textContent = "out";
+          } else if (answered[r.pid]) {
+            badge.classList.add("answered");
+            badge.textContent = "answered";
+          } else {
+            badge.textContent = "waiting";
+          }
+          name.appendChild(badge);
+
+          const outer = document.createElement("div");
+          outer.className = "podiumBarOuter";
+
+          const inner = document.createElement("div");
+          inner.className = "podiumBarInner";
+          inner.style.width = `${Math.round(pct)}%`;
+
+          outer.appendChild(inner);
+
+          const pctEl = document.createElement("div");
+          pctEl.className = "podiumPct";
+          pctEl.textContent = `${Math.round(pct)}%`;
+
+          row.appendChild(name);
+          row.appendChild(outer);
+          row.appendChild(pctEl);
+
+          finalPodiumsEl.appendChild(row);
+        });
+      }
+
+      function clamp01(x) {
+        x = Number(x);
+        if (!Number.isFinite(x)) return 0;
+        return Math.max(0, Math.min(1, x));
+      }
+
       function resetUIToLobby() {
         currentRoomCode = null;
         roomCodeEl.textContent = "----";
@@ -594,7 +814,6 @@
         setStateLabel("LOBBY");
         setGameStatus("lobby");
 
-        // default options
         roomOptions = {
           contentRating: "standard",
           middleCount: 0,
@@ -609,6 +828,8 @@
         setR1Hud({});
         setPickUIInactive();
         statusEl.textContent = "";
+
+        resetFinalUI();
       }
 
       // --------------------
@@ -625,6 +846,7 @@
       }
 
       function tickCountdowns() {
+        // R1 pick
         if (pickActive && Number.isFinite(pickEndsAt)) {
           const left = msLeft(pickEndsAt);
           if (left == null) {
@@ -640,6 +862,7 @@
           if (!pickActive) r1PickStatusEl.textContent = pickStatusBaseText;
         }
 
+        // R1 question
         if (Number.isFinite(questionEndsAt)) {
           const left = msLeft(questionEndsAt);
           if (left == null) {
@@ -651,6 +874,20 @@
           }
         } else {
           r1QuestionTimerEl.textContent = "—";
+        }
+
+        // FINAL question
+        if (Number.isFinite(finalEndsAt)) {
+          const left = msLeft(finalEndsAt);
+          if (left == null) {
+            finalTimerEl.textContent = "—";
+          } else if (left <= 0) {
+            finalTimerEl.textContent = "0s";
+          } else {
+            finalTimerEl.textContent = fmtSeconds(left);
+          }
+        } else {
+          finalTimerEl.textContent = "—";
         }
       }
 
@@ -682,6 +919,8 @@
         pickEndsAt = null;
         questionEndsAt = null;
 
+        resetFinalUI();
+
         socket.emit("host:create_room", { maxPlayers: 6 }, (ack) => {
           if (!ack?.ok) {
             statusEl.textContent = "Failed to create room.";
@@ -694,7 +933,6 @@
           btnEnd.disabled = false;
 
           setStateLabel("LOBBY");
-          // gameStatus/options will come via server events; keep optimistic
           setGameStatus("lobby");
           statusEl.textContent = "Room created. Players can join now.";
           renderPlayers([]);
@@ -756,11 +994,18 @@
       // --------------------
       // Server Events
       // --------------------
+      let lastPlayersPayload = [];
+
       socket.on("server:player_list_updated", ({ players }) => {
+        lastPlayersPayload = players || [];
         renderPlayers(players);
+
+        // keep final podium render in sync if final is on screen
+        if (finalCardEl.style.display !== "none") {
+          renderFinalPodiums(lastPlayersPayload);
+        }
       });
 
-      // NEW: options snapshot (authoritative)
       socket.on("server:options_updated", (payload = {}) => {
         if (
           payload.roomCode &&
@@ -780,16 +1025,53 @@
 
       socket.on(
         "server:state_changed",
-        ({ state, r1, gameStatus: gs, options } = {}) => {
+        ({ state, r1, gameStatus: gs, options, roundId, final } = {}) => {
           setStateLabel(state);
 
-          // Keep gameStatus/options in sync if server includes them here too
           if (gs) setGameStatus(gs);
           if (options) {
             roomOptions = options;
             applyOptionsToUI();
           }
 
+          // FINAL visibility toggle based on state / roundId
+          const inFinal =
+            roundId === 99 ||
+            String(state || "").startsWith("FINAL_") ||
+            final != null;
+
+          showFinalUI(!!inFinal);
+
+          if (inFinal) {
+            // pull snapshot if present
+            if (final) {
+              finalState.phase = final.phase || finalState.phase;
+              finalPhaseEl.textContent = finalState.phase || "—";
+
+              if (final.prompt) {
+                finalState.prompt = final.prompt;
+                finalQuestionEl.textContent = final.prompt;
+              }
+
+              if (final.endsAt === null) finalEndsAt = null;
+              if (Number.isFinite(final.endsAt)) finalEndsAt = final.endsAt;
+
+              if (final.heights) finalState.heights = final.heights;
+              if (Array.isArray(final.alivePlayerIds))
+                finalState.alivePlayerIds = final.alivePlayerIds;
+              if (final.answered) finalState.answered = final.answered;
+
+              renderFinalPodiums(lastPlayersPayload);
+            } else {
+              // at least set phase from state
+              finalPhaseEl.textContent = state || "FINAL";
+            }
+          } else {
+            // leaving final
+            resetFinalUI();
+          }
+
+          // R1
           if (r1) {
             setR1Hud({
               blockIndex: r1.blockIndex,
@@ -851,6 +1133,100 @@
         ({ correctChoice, scoreDeltaIfNoAttempt }) => {
           lastResultEl.textContent = `TIMEOUT — correct was ${correctChoice} (no-attempt penalty ${scoreDeltaIfNoAttempt})`;
           questionEndsAt = null;
+        }
+      );
+
+      // --------------------
+      // FINAL events (NEW)
+      // --------------------
+      socket.on(
+        "server:final_question_presented",
+        ({ prompt, endsAt, heights, alivePlayerIds }) => {
+          showFinalUI(true);
+
+          finalState.phase = "question_open";
+          finalPhaseEl.textContent = "question_open";
+
+          finalState.prompt = prompt || "(question)";
+          finalQuestionEl.textContent = finalState.prompt;
+
+          finalEndsAt = Number.isFinite(endsAt) ? endsAt : null;
+
+          if (heights) finalState.heights = heights;
+          if (Array.isArray(alivePlayerIds))
+            finalState.alivePlayerIds = alivePlayerIds;
+
+          // reset answered map for this question (server doesn't send it on this event)
+          finalState.answered = {};
+
+          renderFinalPodiums(lastPlayersPayload);
+          finalLogEl.textContent = `Final Q started (${
+            finalEndsAt ? "timed" : "—"
+          })`;
+        }
+      );
+
+      socket.on("server:final_answer_received", ({ playerId, displayName }) => {
+        // mark answered in our local snapshot so the host sees "answered"
+        finalState.answered = finalState.answered || {};
+        finalState.answered[playerId] = { choice: "?" };
+
+        renderFinalPodiums(lastPlayersPayload);
+
+        const who = displayName || playerId || "Someone";
+        finalLogEl.textContent = `${who} locked in`;
+      });
+
+      socket.on(
+        "server:final_reveal",
+        ({
+          correctChoice,
+          firstCorrectDisplayName,
+          resultsByPlayerId,
+          heights,
+          alivePlayerIds,
+          reason,
+        }) => {
+          finalState.phase = "reveal";
+          finalPhaseEl.textContent = "reveal";
+          finalEndsAt = null;
+
+          if (heights) finalState.heights = heights;
+          if (Array.isArray(alivePlayerIds))
+            finalState.alivePlayerIds = alivePlayerIds;
+
+          // convert results -> answered map for badges
+          const answered = {};
+          if (resultsByPlayerId) {
+            Object.keys(resultsByPlayerId).forEach((pid) => {
+              const r = resultsByPlayerId[pid];
+              if (r?.choice) answered[pid] = { choice: r.choice };
+            });
+          }
+          finalState.answered = answered;
+
+          renderFinalPodiums(lastPlayersPayload);
+
+          finalLogEl.textContent =
+            `REVEAL — correct ${correctChoice} • first: ${
+              firstCorrectDisplayName || "—"
+            } • ${reason || ""}`.trim();
+        }
+      );
+
+      socket.on(
+        "server:final_complete",
+        ({ winnerDisplayName, winnerPlayerId, heights }) => {
+          finalState.phase = "complete";
+          finalPhaseEl.textContent = "complete";
+          finalEndsAt = null;
+
+          if (heights) finalState.heights = heights;
+
+          renderFinalPodiums(lastPlayersPayload);
+
+          const who = winnerDisplayName || winnerPlayerId || "(no winner)";
+          finalLogEl.textContent = `WINNER — ${who}`;
         }
       );
 
