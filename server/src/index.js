@@ -1363,8 +1363,6 @@ io.on("connection", (socket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Host:  http://localhost:${PORT}/host`);
-  console.log(`Phone: http://localhost:${PORT}/phone`);
+httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
 });
