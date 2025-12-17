@@ -1,0 +1,87 @@
+[
+  {
+    "id": "spo_001",
+    "categoryId": "sports",
+    "prompt": "How many points is a touchdown worth in American football?",
+    "answers": { "A": "3", "B": "6", "C": "7", "D": "10" },
+    "correct": "B"
+  },
+  {
+    "id": "spo_002",
+    "categoryId": "sports",
+    "prompt": "In basketball, how many points is a free throw worth?",
+    "answers": { "A": "1", "B": "2", "C": "3", "D": "4" },
+    "correct": "A"
+  },
+  {
+    "id": "spo_003",
+    "categoryId": "sports",
+    "prompt": "Which sport uses a bat and a ball and has bases?",
+    "answers": { "A": "Soccer", "B": "Baseball", "C": "Hockey", "D": "Tennis" },
+    "correct": "B"
+  },
+  {
+    "id": "spo_004",
+    "categoryId": "sports",
+    "prompt": "Which sport is played at Wimbledon?",
+    "answers": { "A": "Tennis", "B": "Golf", "C": "Cricket", "D": "Rugby" },
+    "correct": "A"
+  },
+  {
+    "id": "spo_005",
+    "categoryId": "sports",
+    "prompt": "In soccer, what is the person called who guards the goal?",
+    "answers": {
+      "A": "Catcher",
+      "B": "Goalkeeper",
+      "C": "Pitcher",
+      "D": "Center"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "spo_006",
+    "categoryId": "sports",
+    "prompt": "Which sport uses a puck?",
+    "answers": {
+      "A": "Hockey",
+      "B": "Baseball",
+      "C": "Basketball",
+      "D": "Rugby"
+    },
+    "correct": "A"
+  },
+  {
+    "id": "spo_007",
+    "categoryId": "sports",
+    "prompt": "How many players are on the field for one soccer team?",
+    "answers": { "A": "9", "B": "10", "C": "11", "D": "12" },
+    "correct": "C"
+  },
+  {
+    "id": "spo_008",
+    "categoryId": "sports",
+    "prompt": "In baseball, how many strikes is an out?",
+    "answers": { "A": "2", "B": "3", "C": "4", "D": "5" },
+    "correct": "B"
+  },
+  {
+    "id": "spo_009",
+    "categoryId": "sports",
+    "prompt": "In golf, what is the term for 1 under par on a hole?",
+    "answers": { "A": "Eagle", "B": "Birdie", "C": "Bogey", "D": "Albatross" },
+    "correct": "B"
+  },
+  {
+    "id": "spo_010",
+    "categoryId": "sports",
+    "prompt": "Which sport is known as 'America’s pastime'?",
+    "answers": {
+      "A": "Basketball",
+      "B": "Baseball",
+      "C": "Football",
+      "D": "Hockey"
+    },
+    "correct": "B"
+  }
+]

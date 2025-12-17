@@ -1,0 +1,87 @@
+[
+  {
+    "id": "gen_001",
+    "categoryId": "general",
+    "prompt": "Which planet is known as the Red Planet?",
+    "answers": { "A": "Venus", "B": "Mars", "C": "Jupiter", "D": "Mercury" },
+    "correct": "B"
+  },
+  {
+    "id": "gen_002",
+    "categoryId": "general",
+    "prompt": "How many continents are there on Earth?",
+    "answers": { "A": "5", "B": "6", "C": "7", "D": "8" },
+    "correct": "C"
+  },
+  {
+    "id": "gen_003",
+    "categoryId": "general",
+    "prompt": "What color do you get by mixing blue and yellow?",
+    "answers": { "A": "Green", "B": "Purple", "C": "Orange", "D": "Brown" },
+    "correct": "A"
+  },
+  {
+    "id": "gen_004",
+    "categoryId": "general",
+    "prompt": "What do bees produce?",
+    "answers": { "A": "Milk", "B": "Honey", "C": "Plastic", "D": "Smoke" },
+    "correct": "B"
+  },
+  {
+    "id": "gen_005",
+    "categoryId": "general",
+    "prompt": "Which ocean is the largest?",
+    "answers": {
+      "A": "Atlantic",
+      "B": "Indian",
+      "C": "Arctic",
+      "D": "Pacific"
+    },
+    "correct": "D"
+  },
+  {
+    "id": "gen_006",
+    "categoryId": "general",
+    "prompt": "Which shape has three sides?",
+    "answers": {
+      "A": "Square",
+      "B": "Triangle",
+      "C": "Circle",
+      "D": "Octagon"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "gen_007",
+    "categoryId": "general",
+    "prompt": "What gas do humans need to breathe to survive?",
+    "answers": {
+      "A": "Carbon dioxide",
+      "B": "Oxygen",
+      "C": "Helium",
+      "D": "Hydrogen"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "gen_008",
+    "categoryId": "general",
+    "prompt": "How many minutes are in an hour?",
+    "answers": { "A": "30", "B": "45", "C": "60", "D": "90" },
+    "correct": "C"
+  },
+  {
+    "id": "gen_009",
+    "categoryId": "general",
+    "prompt": "Which instrument has black and white keys?",
+    "answers": { "A": "Drums", "B": "Piano", "C": "Trumpet", "D": "Violin" },
+    "correct": "B"
+  },
+  {
+    "id": "gen_010",
+    "categoryId": "general",
+    "prompt": "What is the freezing point of water in Fahrenheit?",
+    "answers": { "A": "0°F", "B": "32°F", "C": "50°F", "D": "100°F" },
+    "correct": "B"
+  }
+]

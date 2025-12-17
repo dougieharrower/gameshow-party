@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phone</title>
+    <style>
+      body {
+        font-family: system-ui, Arial, sans-serif;
+        margin: 24px;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        max-width: 420px;
+      }
+      input {
+        width: 100%;
+        padding: 10px;
+        margin: 8px 0;
+        box-sizing: border-box;
+      }
+      button {
+        padding: 14px;
+        cursor: pointer;
+        width: 100%;
+        font-size: 18px;
+      }
+      .muted {
+        color: #666;
+      }
+      .hidden {
+        display: none;
+      }
+      .buzz {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 2px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .choice {
+        font-size: 22px;
+        font-weight: 800;
+        padding: 16px;
+      }
+      .msg {
+        margin-top: 10px;
+      }
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .small {
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Join Game</h1>
+
+    <!-- JOIN -->
+    <div id="joinCard" class="card">
+      <label class="muted">Game Code</label>
+      <input id="roomCode" placeholder="ABCD" maxlength="4" />
+
+      <label class="muted">Name</label>
+      <input id="displayName" placeholder="Your name" maxlength="16" />
+
+      <button id="btnJoin">Join</button>
+      <div id="error" class="muted msg"></div>
+    </div>
+
+    <!-- WAITING -->
+    <div id="waitingCard" class="card hidden">
+      <div class="muted">Joined</div>
+      <h2 id="joinedLabel">Waiting…</h2>
+      <div class="muted">Keep this screen open.</div>
+      <div class="muted msg">State: <span id="stateLabel">LOBBY</span></div>
+    </div>
+
+    <!-- CATEGORY PICK -->
+    <div id="pickCard" class="card hidden">
+      <div class="muted">Round 1</div>
+      <h2>Pick the next category</h2>
+      <div id="pickHelp" class="muted msg"></div>
+
+      <div id="pickOptions" class="stack"></div>
+
+      <div id="pickMsg" class="muted msg small"></div>
+    </div>
+
+    <!-- BUZZ -->
+    <div id="buzzCard" class="card hidden">
+      <div class="muted">Round 1</div>
+      <h2 class="buzz">BUZZ!</h2>
+      <button id="btnBuzz">BUZZ</button>
+      <div id="buzzMsg" class="muted msg"></div>
+    </div>
+
+    <!-- ANSWER -->
+    <div id="answerCard" class="card hidden">
+      <div class="muted">Round 1</div>
+      <h2 id="answerHeader">Answer!</h2>
+      <div id="questionText" class="muted msg"></div>
+
+      <div class="grid msg">
+        <button class="choice" data-choice="A">A</button>
+        <button class="choice" data-choice="B">B</button>
+        <button class="choice" data-choice="C">C</button>
+        <button class="choice" data-choice="D">D</button>
+      </div>
+
+      <div id="answerMsg" class="muted msg"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+
+      // ---- localStorage keys (Jackbox-style persistence)
+      const LS_ROOM = "gsp_roomCode";
+      const LS_NAME = "gsp_displayName";
+      const LS_TOKEN = "gsp_playerToken";
+
+      const joinCard = document.getElementById("joinCard");
+      const waitingCard = document.getElementById("waitingCard");
+      const pickCard = document.getElementById("pickCard");
+      const buzzCard = document.getElementById("buzzCard");
+      const answerCard = document.getElementById("answerCard");
+
+      const roomCodeInput = document.getElementById("roomCode");
+      const nameInput = document.getElementById("displayName");
+      const btnJoin = document.getElementById("btnJoin");
+      const btnBuzz = document.getElementById("btnBuzz");
+
+      const errorEl = document.getElementById("error");
+      const joinedLabel = document.getElementById("joinedLabel");
+      const stateLabelEl = document.getElementById("stateLabel");
+
+      const pickHelp = document.getElementById("pickHelp");
+      const pickOptionsEl = document.getElementById("pickOptions");
+      const pickMsg = document.getElementById("pickMsg");
+
+      const buzzMsg = document.getElementById("buzzMsg");
+      const questionText = document.getElementById("questionText");
+      const answerHeader = document.getElementById("answerHeader");
+      const answerMsg = document.getElementById("answerMsg");
+
+      let myRoomCode = null;
+      let myPlayerId = null;
+      let myPlayerToken = null;
+
+      // local cache of current question text (server sends prompt + answers)
+      let currentQuestion = null;
+      let answeringPlayerId = null;
+
+      // category pick cache
+      let currentPick = null; // { chooserPlayerId, chooserDisplayName, options: [{id,name}], timeoutMs }
+      let pickLocked = false;
+
+      function setStateLabel(state) {
+        stateLabelEl.textContent = state || "UNKNOWN";
+      }
+
+      function showOnly(el) {
+        [joinCard, waitingCard, pickCard, buzzCard, answerCard].forEach((c) =>
+          c.classList.add("hidden")
+        );
+        el.classList.remove("hidden");
+      }
+
+      function setAnswerButtonsEnabled(enabled) {
+        document.querySelectorAll(".choice").forEach((btn) => {
+          btn.disabled = !enabled;
+        });
+      }
+
+      function saveSession(roomCode, displayName, playerToken) {
+        localStorage.setItem(LS_ROOM, roomCode);
+        localStorage.setItem(LS_NAME, displayName);
+        localStorage.setItem(LS_TOKEN, playerToken);
+      }
+
+      function clearPickUI() {
+        pickOptionsEl.innerHTML = "";
+        pickHelp.textContent = "";
+        pickMsg.textContent = "";
+        pickLocked = false;
+      }
+
+      function clearSession() {
+        localStorage.removeItem(LS_ROOM);
+        localStorage.removeItem(LS_NAME);
+        localStorage.removeItem(LS_TOKEN);
+
+        myRoomCode = null;
+        myPlayerId = null;
+        myPlayerToken = null;
+
+        answeringPlayerId = null;
+        currentQuestion = null;
+
+        currentPick = null;
+        pickLocked = false;
+        clearPickUI();
+      }
+
+      function normalizeOptions(arr) {
+        // Accept either [{id,name}] or ["id","id2"]
+        if (!Array.isArray(arr)) return [];
+        if (arr.length === 0) return [];
+        if (typeof arr[0] === "string")
+          return arr.map((id) => ({ id, name: id }));
+        return arr
+          .map((o) => ({
+            id: o?.id ?? "",
+            name: o?.name ?? o?.id ?? "",
+          }))
+          .filter((o) => o.id);
+      }
+
+      function renderPickUI() {
+        clearPickUI();
+        if (!currentPick) return;
+
+        const chooserId = currentPick.chooserPlayerId;
+        const isChooser = myPlayerId && chooserId && myPlayerId === chooserId;
+
+        if (isChooser) {
+          pickHelp.textContent =
+            "You're in last place — choose the next category:";
+        } else {
+          const who = currentPick.chooserDisplayName
+            ? currentPick.chooserDisplayName
+            : "the chooser";
+          pickHelp.textContent = `Waiting for ${who} to pick the next category…`;
+        }
+
+        const options = normalizeOptions(currentPick.options);
+
+        options.forEach((opt) => {
+          const btn = document.createElement("button");
+          btn.textContent = opt.name || opt.id;
+          btn.disabled = !isChooser || pickLocked;
+
+          btn.addEventListener("click", () => {
+            if (!isChooser || pickLocked) return;
+            pickLocked = true;
+
+            pickMsg.textContent = "Sending pick…";
+            pickOptionsEl
+              .querySelectorAll("button")
+              .forEach((b) => (b.disabled = true));
+
+            socket.emit(
+              "phone:r1_pick_category",
+              {
+                roomCode: myRoomCode,
+                playerId: myPlayerId,
+                categoryId: opt.id,
+              },
+              (ack) => {
+                if (!ack?.ok) {
+                  pickLocked = false;
+                  pickMsg.textContent = `Nope: ${ack?.reason || "UNKNOWN"}`;
+                  // re-enable if still chooser
+                  pickOptionsEl
+                    .querySelectorAll("button")
+                    .forEach((b) => (b.disabled = false));
+                  return;
+                }
+                pickMsg.textContent = "Picked! Loading next block…";
+              }
+            );
+          });
+
+          pickOptionsEl.appendChild(btn);
+        });
+
+        if (currentPick.timeoutMs) {
+          pickMsg.textContent = `Auto-pick in ~${Math.ceil(
+            currentPick.timeoutMs / 1000
+          )}s if no selection.`;
+        } else {
+          // no timeout known (snapshot via state), keep it calm
+          if (!pickMsg.textContent) pickMsg.textContent = "";
+        }
+      }
+
+      // --------------------
+      // Join (first time)
+      // --------------------
+      btnJoin.addEventListener("click", () => {
+        errorEl.textContent = "";
+
+        const roomCode = roomCodeInput.value.trim().toUpperCase();
+        const displayName = nameInput.value.trim();
+
+        socket.emit("phone:join_room", { roomCode, displayName }, (ack) => {
+          if (!ack?.ok) {
+            errorEl.textContent = `Join failed: ${ack?.reason || "UNKNOWN"}`;
+            return;
+          }
+
+          myRoomCode = ack.roomCode;
+          myPlayerId = ack.playerId;
+          myPlayerToken = ack.playerToken;
+
+          saveSession(ack.roomCode, ack.displayName, ack.playerToken);
+
+          showOnly(waitingCard);
+          joinedLabel.textContent = `Room ${ack.roomCode} • Hi ${ack.displayName}!`;
+          setStateLabel(ack.state || "LOBBY");
+        });
+      });
+
+      // --------------------
+      // Auto-rejoin on refresh
+      // --------------------
+      function tryAutoRejoin() {
+        const savedRoom = localStorage.getItem(LS_ROOM);
+        const savedName = localStorage.getItem(LS_NAME);
+        const savedToken = localStorage.getItem(LS_TOKEN);
+
+        if (!savedRoom || !savedToken) return;
+
+        roomCodeInput.value = savedRoom;
+        if (savedName) nameInput.value = savedName;
+
+        errorEl.textContent = "Rejoining game…";
+        showOnly(joinCard);
+
+        socket.emit(
+          "phone:rejoin_room",
+          { roomCode: savedRoom, playerToken: savedToken },
+          (ack) => {
+            if (!ack?.ok) {
+              clearSession();
+              errorEl.textContent =
+                "Could not rejoin (game ended or token invalid). Please join again.";
+              showOnly(joinCard);
+              return;
+            }
+
+            myRoomCode = ack.roomCode;
+            myPlayerId = ack.playerId;
+            myPlayerToken = ack.playerToken;
+
+            saveSession(ack.roomCode, ack.displayName, ack.playerToken);
+
+            showOnly(waitingCard);
+            joinedLabel.textContent = `Room ${ack.roomCode} • Hi ${ack.displayName}!`;
+            setStateLabel(ack.state || "UNKNOWN");
+
+            // We'll also receive snapshot events, but this helps immediately
+            if (ack.state === "ROUND_1_CATEGORY_PICK") {
+              showOnly(pickCard);
+              // state snapshot will fill options
+            } else if (ack.state === "ROUND_1_BUZZ_OPEN") {
+              showOnly(buzzCard);
+              btnBuzz.disabled = false;
+              buzzMsg.textContent = "";
+            } else if (ack.state === "ROUND_1_ANSWER_OPEN") {
+              joinedLabel.textContent = "Round in progress…";
+            } else if (ack.state === "ROUND_1_INTRO") {
+              joinedLabel.textContent = "Round 1 starting…";
+            }
+          }
+        );
+      }
+
+      // --------------------
+      // Server sends question text
+      // --------------------
+      socket.on("server:r1_question_presented", ({ prompt, answers }) => {
+        currentQuestion = { prompt, answers };
+      });
+
+      // --------------------
+      // Category pick event (best: includes names + timeout)
+      // --------------------
+      socket.on("server:r1_category_pick", (payload) => {
+        if (!myRoomCode) return;
+
+        currentPick = {
+          chooserPlayerId: payload?.chooserPlayerId ?? null,
+          chooserDisplayName: payload?.chooserDisplayName ?? null, // (optional)
+          options: payload?.options || [],
+          timeoutMs: payload?.timeoutMs || null,
+        };
+
+        showOnly(pickCard);
+        renderPickUI();
+      });
+
+      // --------------------
+      // State changes (now includes r1.currentCategoryName, chooserDisplayName, pickOptionsDetailed)
+      // --------------------
+      socket.on("server:state_changed", ({ state, r1 }) => {
+        setStateLabel(state);
+
+        if (!myRoomCode) return;
+
+        if (state === "ROUND_1_CATEGORY_PICK") {
+          // Prefer the detailed options if present
+          const detailed = r1?.pickOptionsDetailed;
+          const fallback = r1?.pickOptions;
+
+          currentPick = {
+            chooserPlayerId: r1?.chooserPlayerId ?? null,
+            chooserDisplayName: r1?.chooserDisplayName ?? null,
+            options: detailed && detailed.length ? detailed : fallback || [],
+            timeoutMs: currentPick?.timeoutMs || null, // might be set by server:r1_category_pick
+          };
+
+          showOnly(pickCard);
+          renderPickUI();
+          return;
+        }
+
+        if (state === "ROUND_1_BUZZ_OPEN") {
+          // leaving pick
+          currentPick = null;
+          clearPickUI();
+
+          showOnly(buzzCard);
+          btnBuzz.disabled = false;
+          buzzMsg.textContent = "";
+          return;
+        }
+
+        if (state === "ROUND_1_ANSWER_OPEN") {
+          // UI switch is handled in server:r1_answer_open
+          return;
+        }
+
+        // Default fallback
+        currentPick = null;
+        clearPickUI();
+
+        showOnly(waitingCard);
+        if (state === "ROUND_1_INTRO")
+          joinedLabel.textContent = "Round 1 starting…";
+        if (state === "ROUND_1_COMPLETE")
+          joinedLabel.textContent = "Round 1 complete!";
+      });
+
+      // --------------------
+      // Buzz
+      // --------------------
+      btnBuzz.addEventListener("click", () => {
+        btnBuzz.disabled = true;
+        buzzMsg.textContent = "Buzz sent…";
+
+        socket.emit(
+          "phone:r1_buzz",
+          { roomCode: myRoomCode, playerId: myPlayerId },
+          (ack) => {
+            if (!ack?.ok) {
+              buzzMsg.textContent = `Nope: ${ack?.reason || "UNKNOWN"}`;
+              return;
+            }
+            buzzMsg.textContent = "You buzzed first!";
+          }
+        );
+      });
+
+      // --------------------
+      // Answer phase begins
+      // --------------------
+      socket.on(
+        "server:r1_answer_open",
+        ({ answeringPlayerId: pid, answerTimeLimitMs }) => {
+          answeringPlayerId = pid;
+
+          const isMe = myPlayerId && pid === myPlayerId;
+
+          if (!currentQuestion) {
+            currentQuestion = { prompt: "(question loading…)", answers: null };
+          }
+
+          if (isMe) {
+            showOnly(answerCard);
+            answerHeader.textContent = `Answer! (${Math.ceil(
+              answerTimeLimitMs / 1000
+            )}s)`;
+            questionText.textContent = currentQuestion.prompt || "";
+            answerMsg.textContent = "Pick A / B / C / D";
+            setAnswerButtonsEnabled(true);
+          } else {
+            showOnly(waitingCard);
+            joinedLabel.textContent = "Someone is answering…";
+          }
+        }
+      );
+
+      // click handlers for A/B/C/D
+      document.querySelectorAll(".choice").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const choice = btn.getAttribute("data-choice");
+          if (!choice) return;
+
+          setAnswerButtonsEnabled(false);
+          answerMsg.textContent = "Answer sent…";
+
+          socket.emit(
+            "phone:r1_answer_selected",
+            { roomCode: myRoomCode, playerId: myPlayerId, choice },
+            (ack) => {
+              if (!ack?.ok) {
+                answerMsg.textContent = `Nope: ${ack?.reason || "UNKNOWN"}`;
+                return;
+              }
+            }
+          );
+        });
+      });
+
+      // --------------------
+      // Answer result / reveal
+      // --------------------
+      socket.on(
+        "server:r1_answer_result",
+        ({ outcome, chosen, correctChoice, scoreDelta }) => {
+          if (!myRoomCode) return;
+
+          const isMe = answeringPlayerId && myPlayerId === answeringPlayerId;
+
+          if (isMe) {
+            showOnly(answerCard);
+            setAnswerButtonsEnabled(false);
+
+            if (outcome === "TIMEOUT") {
+              answerMsg.textContent = `TIMEOUT — penalty ${scoreDelta}`;
+            } else {
+              const ok = outcome === "CORRECT";
+              answerMsg.textContent = `${
+                ok ? "CORRECT" : "WRONG"
+              } — you chose ${chosen}, correct is ${correctChoice} (${scoreDelta})`;
+            }
+          } else {
+            showOnly(waitingCard);
+            joinedLabel.textContent = "Next question…";
+          }
+        }
+      );
+
+      // --------------------
+      // Room closed
+      // --------------------
+      socket.on("server:error", (err) => {
+        if (err?.code === "ROOM_CLOSED") {
+          clearSession();
+          errorEl.textContent = "Host ended the game.";
+          showOnly(joinCard);
+          return;
+        }
+
+        errorEl.textContent = `Error: ${err?.code || "UNKNOWN"}`;
+      });
+
+      // Kick off
+      setStateLabel("LOBBY");
+      tryAutoRejoin();
+    </script>
+  </body>
+</html>

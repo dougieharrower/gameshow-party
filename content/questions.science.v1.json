@@ -1,0 +1,92 @@
+[
+  {
+    "id": "sci_001",
+    "categoryId": "science",
+    "prompt": "What is the process plants use to make food from sunlight?",
+    "answers": {
+      "A": "Evaporation",
+      "B": "Photosynthesis",
+      "C": "Condensation",
+      "D": "Fermentation"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "sci_002",
+    "categoryId": "science",
+    "prompt": "What is H2O commonly known as?",
+    "answers": { "A": "Salt", "B": "Water", "C": "Oxygen", "D": "Hydrogen" },
+    "correct": "B"
+  },
+  {
+    "id": "sci_003",
+    "categoryId": "science",
+    "prompt": "Which organ pumps blood through the body?",
+    "answers": { "A": "Lungs", "B": "Heart", "C": "Brain", "D": "Stomach" },
+    "correct": "B"
+  },
+  {
+    "id": "sci_004",
+    "categoryId": "science",
+    "prompt": "What force pulls objects toward Earth?",
+    "answers": {
+      "A": "Magnetism",
+      "B": "Gravity",
+      "C": "Friction",
+      "D": "Electricity"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "sci_005",
+    "categoryId": "science",
+    "prompt": "Which part of the cell contains DNA?",
+    "answers": {
+      "A": "Nucleus",
+      "B": "Ribosome",
+      "C": "Cell wall",
+      "D": "Membrane"
+    },
+    "correct": "A"
+  },
+  {
+    "id": "sci_006",
+    "categoryId": "science",
+    "prompt": "What do you call animals that eat only plants?",
+    "answers": {
+      "A": "Carnivores",
+      "B": "Herbivores",
+      "C": "Omnivores",
+      "D": "Predators"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "sci_007",
+    "categoryId": "science",
+    "prompt": "Which is a renewable energy source?",
+    "answers": { "A": "Coal", "B": "Oil", "C": "Wind", "D": "Natural gas" },
+    "correct": "C"
+  },
+  {
+    "id": "sci_008",
+    "categoryId": "science",
+    "prompt": "What is the name of Earth’s natural satellite?",
+    "answers": { "A": "Mars", "B": "The Moon", "C": "The Sun", "D": "Venus" },
+    "correct": "B"
+  },
+  {
+    "id": "sci_009",
+    "categoryId": "science",
+    "prompt": "Which state of matter is ice?",
+    "answers": { "A": "Solid", "B": "Liquid", "C": "Gas", "D": "Plasma" },
+    "correct": "A"
+  },
+  {
+    "id": "sci_010",
+    "categoryId": "science",
+    "prompt": "What do magnets attract strongly?",
+    "answers": { "A": "Plastic", "B": "Wood", "C": "Iron", "D": "Glass" },
+    "correct": "C"
+  }
+]

@@ -1,0 +1,77 @@
+[
+  {
+    "id": "wn_001",
+    "categoryId": "what_next",
+    "prompt": "What comes next? 2, 4, 6, 8, …",
+    "answers": { "A": "9", "B": "10", "C": "11", "D": "12" },
+    "correct": "B"
+  },
+  {
+    "id": "wn_002",
+    "categoryId": "what_next",
+    "prompt": "What comes next? A, B, C, D, …",
+    "answers": { "A": "E", "B": "F", "C": "G", "D": "H" },
+    "correct": "A"
+  },
+  {
+    "id": "wn_003",
+    "categoryId": "what_next",
+    "prompt": "What comes next? 5, 10, 15, 20, …",
+    "answers": { "A": "22", "B": "24", "C": "25", "D": "30" },
+    "correct": "C"
+  },
+  {
+    "id": "wn_004",
+    "categoryId": "what_next",
+    "prompt": "What comes next? Sunday, Monday, Tuesday, …",
+    "answers": {
+      "A": "Thursday",
+      "B": "Friday",
+      "C": "Wednesday",
+      "D": "Saturday"
+    },
+    "correct": "C"
+  },
+  {
+    "id": "wn_005",
+    "categoryId": "what_next",
+    "prompt": "What comes next? 1, 1, 2, 3, 5, …",
+    "answers": { "A": "6", "B": "7", "C": "8", "D": "9" },
+    "correct": "C"
+  },
+  {
+    "id": "wn_006",
+    "categoryId": "what_next",
+    "prompt": "What comes next? January, February, March, …",
+    "answers": { "A": "April", "B": "May", "C": "June", "D": "July" },
+    "correct": "A"
+  },
+  {
+    "id": "wn_007",
+    "categoryId": "what_next",
+    "prompt": "What comes next? 10, 9, 8, 7, …",
+    "answers": { "A": "5", "B": "6", "C": "4", "D": "3" },
+    "correct": "B"
+  },
+  {
+    "id": "wn_008",
+    "categoryId": "what_next",
+    "prompt": "What comes next? 3, 6, 9, 12, …",
+    "answers": { "A": "13", "B": "14", "C": "15", "D": "16" },
+    "correct": "C"
+  },
+  {
+    "id": "wn_009",
+    "categoryId": "what_next",
+    "prompt": "What comes next? Red, Orange, Yellow, …",
+    "answers": { "A": "Green", "B": "Blue", "C": "Purple", "D": "Black" },
+    "correct": "A"
+  },
+  {
+    "id": "wn_010",
+    "categoryId": "what_next",
+    "prompt": "What comes next? 100, 90, 80, 70, …",
+    "answers": { "A": "50", "B": "55", "C": "60", "D": "65" },
+    "correct": "C"
+  }
+]

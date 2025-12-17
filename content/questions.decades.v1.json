@@ -1,0 +1,72 @@
+[
+  {
+    "id": "dec_001",
+    "categoryId": "decades",
+    "prompt": "In which decade did the first iPhone launch?",
+    "answers": { "A": "1980s", "B": "1990s", "C": "2000s", "D": "2010s" },
+    "correct": "C"
+  },
+  {
+    "id": "dec_002",
+    "categoryId": "decades",
+    "prompt": "In which decade did World War II end?",
+    "answers": { "A": "1910s", "B": "1930s", "C": "1940s", "D": "1960s" },
+    "correct": "C"
+  },
+  {
+    "id": "dec_003",
+    "categoryId": "decades",
+    "prompt": "In which decade did the Berlin Wall fall?",
+    "answers": { "A": "1960s", "B": "1970s", "C": "1980s", "D": "1990s" },
+    "correct": "C"
+  },
+  {
+    "id": "dec_004",
+    "categoryId": "decades",
+    "prompt": "In which decade did the Titanic sink?",
+    "answers": { "A": "1890s", "B": "1900s", "C": "1910s", "D": "1920s" },
+    "correct": "C"
+  },
+  {
+    "id": "dec_005",
+    "categoryId": "decades",
+    "prompt": "In which decade did the first man land on the Moon?",
+    "answers": { "A": "1950s", "B": "1960s", "C": "1970s", "D": "1980s" },
+    "correct": "B"
+  },
+  {
+    "id": "dec_006",
+    "categoryId": "decades",
+    "prompt": "In which decade did the original 'Star Wars' release?",
+    "answers": { "A": "1960s", "B": "1970s", "C": "1980s", "D": "1990s" },
+    "correct": "B"
+  },
+  {
+    "id": "dec_007",
+    "categoryId": "decades",
+    "prompt": "In which decade did YouTube launch?",
+    "answers": { "A": "1990s", "B": "2000s", "C": "2010s", "D": "2020s" },
+    "correct": "B"
+  },
+  {
+    "id": "dec_008",
+    "categoryId": "decades",
+    "prompt": "In which decade did the Great Depression begin?",
+    "answers": { "A": "1910s", "B": "1920s", "C": "1930s", "D": "1940s" },
+    "correct": "B"
+  },
+  {
+    "id": "dec_009",
+    "categoryId": "decades",
+    "prompt": "In which decade did the first Nintendo Entertainment System (NES) release in North America?",
+    "answers": { "A": "1970s", "B": "1980s", "C": "1990s", "D": "2000s" },
+    "correct": "B"
+  },
+  {
+    "id": "dec_010",
+    "categoryId": "decades",
+    "prompt": "In which decade did the COVID-19 pandemic begin?",
+    "answers": { "A": "1990s", "B": "2000s", "C": "2010s", "D": "2020s" },
+    "correct": "D"
+  }
+]

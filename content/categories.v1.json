@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "categories": [
+    { "id": "general", "name": "General Knowledge" },
+    { "id": "us_history", "name": "US History" },
+    { "id": "geography", "name": "Geography" },
+    { "id": "movies", "name": "Movies" },
+    { "id": "music", "name": "Music" },
+    { "id": "video_games", "name": "Video Games" },
+    { "id": "words", "name": "Language / Words" },
+    { "id": "science", "name": "Science" },
+    { "id": "sports", "name": "Sports" },
+    { "id": "decades", "name": "Decades" },
+    { "id": "what_next", "name": "What Comes Next" },
+    { "id": "animals", "name": "Animals" }
+  ]
+}

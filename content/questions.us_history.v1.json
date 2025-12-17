@@ -1,0 +1,117 @@
+[
+  {
+    "id": "ush_001",
+    "categoryId": "us_history",
+    "prompt": "Who was the first President of the United States?",
+    "answers": {
+      "A": "Abraham Lincoln",
+      "B": "George Washington",
+      "C": "Thomas Jefferson",
+      "D": "John Adams"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ush_002",
+    "categoryId": "us_history",
+    "prompt": "Which document begins with “We the People”?",
+    "answers": {
+      "A": "Declaration of Independence",
+      "B": "U.S. Constitution",
+      "C": "Bill of Rights",
+      "D": "Emancipation Proclamation"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ush_003",
+    "categoryId": "us_history",
+    "prompt": "The Civil War was fought between the Union and the…",
+    "answers": {
+      "A": "Allies",
+      "B": "Confederacy",
+      "C": "Colonies",
+      "D": "Monarchy"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ush_004",
+    "categoryId": "us_history",
+    "prompt": "Which holiday celebrates independence from Great Britain?",
+    "answers": {
+      "A": "Memorial Day",
+      "B": "Labor Day",
+      "C": "Independence Day",
+      "D": "Veterans Day"
+    },
+    "correct": "C"
+  },
+  {
+    "id": "ush_005",
+    "categoryId": "us_history",
+    "prompt": "Who wrote most of the Declaration of Independence?",
+    "answers": {
+      "A": "James Madison",
+      "B": "Thomas Jefferson",
+      "C": "Benjamin Franklin",
+      "D": "Alexander Hamilton"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ush_006",
+    "categoryId": "us_history",
+    "prompt": "What purchase doubled the size of the United States in 1803?",
+    "answers": {
+      "A": "Gadsden Purchase",
+      "B": "Louisiana Purchase",
+      "C": "Alaska Purchase",
+      "D": "Florida Purchase"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ush_007",
+    "categoryId": "us_history",
+    "prompt": "Which U.S. President is associated with the Emancipation Proclamation?",
+    "answers": {
+      "A": "Theodore Roosevelt",
+      "B": "Abraham Lincoln",
+      "C": "Ulysses S. Grant",
+      "D": "Woodrow Wilson"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ush_008",
+    "categoryId": "us_history",
+    "prompt": "What was the name of the ship the Pilgrims sailed on in 1620?",
+    "answers": {
+      "A": "Santa Maria",
+      "B": "Mayflower",
+      "C": "Beagle",
+      "D": "Endeavour"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ush_009",
+    "categoryId": "us_history",
+    "prompt": "Which war was fought between the U.S. and Mexico in the 1840s?",
+    "answers": {
+      "A": "War of 1812",
+      "B": "Mexican–American War",
+      "C": "Spanish–American War",
+      "D": "Korean War"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ush_010",
+    "categoryId": "us_history",
+    "prompt": "The Statue of Liberty was a gift from which country?",
+    "answers": { "A": "France", "B": "Spain", "C": "Canada", "D": "Italy" },
+    "correct": "A"
+  }
+]

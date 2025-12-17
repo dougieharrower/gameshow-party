@@ -1,0 +1,102 @@
+[
+  {
+    "id": "mov_001",
+    "categoryId": "movies",
+    "prompt": "Which movie features a character named Simba?",
+    "answers": {
+      "A": "Shrek",
+      "B": "The Lion King",
+      "C": "Frozen",
+      "D": "Toy Story"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "mov_002",
+    "categoryId": "movies",
+    "prompt": "In Star Wars, what is the name of Han Solo’s ship?",
+    "answers": {
+      "A": "Serenity",
+      "B": "Millennium Falcon",
+      "C": "Enterprise",
+      "D": "Galactica"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "mov_003",
+    "categoryId": "movies",
+    "prompt": "Which superhero is also known as Bruce Wayne?",
+    "answers": {
+      "A": "Spider-Man",
+      "B": "Batman",
+      "C": "Superman",
+      "D": "Iron Man"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "mov_004",
+    "categoryId": "movies",
+    "prompt": "Which movie is about a great white shark threatening a beach town?",
+    "answers": { "A": "Jaws", "B": "Titanic", "C": "Rocky", "D": "E.T." },
+    "correct": "A"
+  },
+  {
+    "id": "mov_005",
+    "categoryId": "movies",
+    "prompt": "Who plays Jack in Titanic?",
+    "answers": {
+      "A": "Brad Pitt",
+      "B": "Leonardo DiCaprio",
+      "C": "Tom Cruise",
+      "D": "Matt Damon"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "mov_006",
+    "categoryId": "movies",
+    "prompt": "Which movie features toys that come to life?",
+    "answers": { "A": "Cars", "B": "Toy Story", "C": "Up", "D": "Coco" },
+    "correct": "B"
+  },
+  {
+    "id": "mov_007",
+    "categoryId": "movies",
+    "prompt": "In The Wizard of Oz, what color is the brick road?",
+    "answers": { "A": "Red", "B": "Yellow", "C": "Blue", "D": "Green" },
+    "correct": "B"
+  },
+  {
+    "id": "mov_008",
+    "categoryId": "movies",
+    "prompt": "Which movie features a character named Forrest Gump?",
+    "answers": {
+      "A": "Cast Away",
+      "B": "Forrest Gump",
+      "C": "Big",
+      "D": "The Terminal"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "mov_009",
+    "categoryId": "movies",
+    "prompt": "Which animated movie features a snowman named Olaf?",
+    "answers": { "A": "Moana", "B": "Frozen", "C": "Tangled", "D": "Brave" },
+    "correct": "B"
+  },
+  {
+    "id": "mov_010",
+    "categoryId": "movies",
+    "prompt": "In Harry Potter, what is the name of Harry’s owl?",
+    "answers": {
+      "A": "Hedwig",
+      "B": "Crookshanks",
+      "C": "Scabbers",
+      "D": "Fawkes"
+    },
+    "correct": "A"
+  }
+]

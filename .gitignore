@@ -1,0 +1,15 @@
+# Node
+node_modules/
+npm-debug.log
+yarn.lock
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,87 @@
+[
+  {
+    "id": "ani_001",
+    "categoryId": "animals",
+    "prompt": "Which animal is the largest living land animal?",
+    "answers": {
+      "A": "Giraffe",
+      "B": "Elephant",
+      "C": "Hippopotamus",
+      "D": "Rhinoceros"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ani_002",
+    "categoryId": "animals",
+    "prompt": "What do you call a baby dog?",
+    "answers": { "A": "Cub", "B": "Puppy", "C": "Kit", "D": "Calf" },
+    "correct": "B"
+  },
+  {
+    "id": "ani_003",
+    "categoryId": "animals",
+    "prompt": "Which animal is known for black-and-white stripes?",
+    "answers": { "A": "Zebra", "B": "Tiger", "C": "Panda", "D": "Skunk" },
+    "correct": "A"
+  },
+  {
+    "id": "ani_004",
+    "categoryId": "animals",
+    "prompt": "Which animal is famous for changing its color to blend in?",
+    "answers": {
+      "A": "Dolphin",
+      "B": "Chameleon",
+      "C": "Eagle",
+      "D": "Kangaroo"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ani_005",
+    "categoryId": "animals",
+    "prompt": "What do you call a group of lions?",
+    "answers": { "A": "Herd", "B": "Pack", "C": "Pride", "D": "Flock" },
+    "correct": "C"
+  },
+  {
+    "id": "ani_006",
+    "categoryId": "animals",
+    "prompt": "Which animal lays eggs and is a mammal?",
+    "answers": {
+      "A": "Kangaroo",
+      "B": "Platypus",
+      "C": "Elephant",
+      "D": "Whale"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "ani_007",
+    "categoryId": "animals",
+    "prompt": "Which animal is known for carrying its home on its back?",
+    "answers": { "A": "Snail", "B": "Rabbit", "C": "Frog", "D": "Crow" },
+    "correct": "A"
+  },
+  {
+    "id": "ani_008",
+    "categoryId": "animals",
+    "prompt": "Which animal is the fastest land animal?",
+    "answers": { "A": "Cheetah", "B": "Lion", "C": "Horse", "D": "Greyhound" },
+    "correct": "A"
+  },
+  {
+    "id": "ani_009",
+    "categoryId": "animals",
+    "prompt": "What do pandas mainly eat?",
+    "answers": { "A": "Fish", "B": "Bamboo", "C": "Leaves", "D": "Insects" },
+    "correct": "B"
+  },
+  {
+    "id": "ani_010",
+    "categoryId": "animals",
+    "prompt": "Which animal is known for building dams?",
+    "answers": { "A": "Otter", "B": "Beaver", "C": "Seal", "D": "Badger" },
+    "correct": "B"
+  }
+]

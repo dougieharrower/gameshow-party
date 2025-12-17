@@ -1,0 +1,92 @@
+[
+  {
+    "id": "vg_001",
+    "categoryId": "video_games",
+    "prompt": "What color is Pac-Man?",
+    "answers": { "A": "Red", "B": "Yellow", "C": "Blue", "D": "Green" },
+    "correct": "B"
+  },
+  {
+    "id": "vg_002",
+    "categoryId": "video_games",
+    "prompt": "Mario is a character from which company’s games?",
+    "answers": { "A": "Nintendo", "B": "Sony", "C": "Sega", "D": "Microsoft" },
+    "correct": "A"
+  },
+  {
+    "id": "vg_003",
+    "categoryId": "video_games",
+    "prompt": "Which game series features a character named Link?",
+    "answers": {
+      "A": "Final Fantasy",
+      "B": "The Legend of Zelda",
+      "C": "Pokémon",
+      "D": "Mega Man"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "vg_004",
+    "categoryId": "video_games",
+    "prompt": "In Minecraft, what do you typically use to mine stone?",
+    "answers": {
+      "A": "Pickaxe",
+      "B": "Shovel",
+      "C": "Hoe",
+      "D": "Fishing rod"
+    },
+    "correct": "A"
+  },
+  {
+    "id": "vg_005",
+    "categoryId": "video_games",
+    "prompt": "Which console family includes the PlayStation?",
+    "answers": { "A": "Nintendo", "B": "Sony", "C": "Atari", "D": "Valve" },
+    "correct": "B"
+  },
+  {
+    "id": "vg_006",
+    "categoryId": "video_games",
+    "prompt": "Which game franchise features Pikachu?",
+    "answers": { "A": "Pokémon", "B": "Digimon", "C": "Zelda", "D": "Kirby" },
+    "correct": "A"
+  },
+  {
+    "id": "vg_007",
+    "categoryId": "video_games",
+    "prompt": "What is the name of Sonic’s species?",
+    "answers": { "A": "Fox", "B": "Hedgehog", "C": "Rabbit", "D": "Cat" },
+    "correct": "B"
+  },
+  {
+    "id": "vg_008",
+    "categoryId": "video_games",
+    "prompt": "In Tetris, you clear the board by completing…",
+    "answers": {
+      "A": "Squares",
+      "B": "Circles",
+      "C": "Lines",
+      "D": "Triangles"
+    },
+    "correct": "C"
+  },
+  {
+    "id": "vg_009",
+    "categoryId": "video_games",
+    "prompt": "Which game uses the phrase 'Victory Royale'?",
+    "answers": {
+      "A": "Fortnite",
+      "B": "Overwatch",
+      "C": "Halo",
+      "D": "Among Us"
+    },
+    "correct": "A"
+  },
+  {
+    "id": "vg_010",
+    "categoryId": "video_games",
+    "prompt": "Which plumber is Mario’s brother?",
+    "answers": { "A": "Wario", "B": "Luigi", "C": "Yoshi", "D": "Toad" },
+    "correct": "B"
+  }
+]

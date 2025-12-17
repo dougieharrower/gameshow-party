@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Host</title>
+    <style>
+      body {
+        font-family: system-ui, Arial, sans-serif;
+        margin: 24px;
+      }
+      .row {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        width: 360px;
+      }
+      .code {
+        font-size: 48px;
+        letter-spacing: 6px;
+        font-weight: 800;
+      }
+      button {
+        padding: 10px 14px;
+        cursor: pointer;
+        margin-right: 8px;
+      }
+      ul {
+        margin: 8px 0 0;
+        padding-left: 18px;
+      }
+      .muted {
+        color: #666;
+      }
+      .spacer {
+        margin-top: 12px;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .danger {
+        border: 1px solid #d33;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Host</h1>
+
+    <div class="row">
+      <!-- ROOM / STATE -->
+      <div class="card">
+        <div class="muted">Room</div>
+        <div id="roomCode" class="code">----</div>
+
+        <div class="muted spacer">
+          State: <span id="stateLabel">LOBBY</span>
+        </div>
+
+        <div class="spacer">
+          <button id="btnCreate">Create Game</button>
+          <button id="btnStart" disabled>Start Game</button>
+        </div>
+
+        <div class="spacer">
+          <button id="btnEnd" class="danger" disabled>End Game</button>
+        </div>
+
+        <div id="status" class="muted spacer"></div>
+      </div>
+
+      <!-- PLAYERS -->
+      <div class="card">
+        <div class="muted">Players</div>
+        <ul id="playerList"></ul>
+
+        <div class="muted spacer">Buzz</div>
+        <div id="buzzStatus" class="muted">(not started)</div>
+
+        <div class="muted spacer">Last Result</div>
+        <div id="lastResult" class="muted mono">(none)</div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+
+      const roomCodeEl = document.getElementById("roomCode");
+      const btnCreate = document.getElementById("btnCreate");
+      const btnStart = document.getElementById("btnStart");
+      const btnEnd = document.getElementById("btnEnd");
+
+      const playerListEl = document.getElementById("playerList");
+      const statusEl = document.getElementById("status");
+      const stateLabelEl = document.getElementById("stateLabel");
+      const buzzStatusEl = document.getElementById("buzzStatus");
+      const lastResultEl = document.getElementById("lastResult");
+
+      let currentRoomCode = null;
+
+      function setStateLabel(state) {
+        stateLabelEl.textContent = state || "UNKNOWN";
+      }
+
+      function renderPlayers(players) {
+        playerListEl.innerHTML = "";
+        if (!players || players.length === 0) {
+          const li = document.createElement("li");
+          li.textContent = "(no players yet)";
+          li.className = "muted";
+          playerListEl.appendChild(li);
+          return;
+        }
+
+        const sorted = [...players].sort(
+          (a, b) => (b.score ?? 0) - (a.score ?? 0)
+        );
+
+        sorted.forEach((p) => {
+          const li = document.createElement("li");
+          const score = p.score ?? 0;
+          const conn = p.isConnected === false ? " (offline)" : "";
+          li.textContent = `${p.displayName}${conn} — ${score}`;
+          playerListEl.appendChild(li);
+        });
+      }
+
+      function resetUIToLobby() {
+        currentRoomCode = null;
+        roomCodeEl.textContent = "----";
+        btnStart.disabled = true;
+        btnEnd.disabled = true;
+        setStateLabel("LOBBY");
+        buzzStatusEl.textContent = "(not started)";
+        lastResultEl.textContent = "(none)";
+        renderPlayers([]);
+      }
+
+      // --------------------
+      // Refresh warning (kills game)
+      // --------------------
+      window.addEventListener("beforeunload", (e) => {
+        if (currentRoomCode) {
+          e.preventDefault();
+          e.returnValue =
+            "Refreshing or closing will end the current game for everyone.";
+        }
+      });
+
+      // --------------------
+      // Create Room
+      // --------------------
+      btnCreate.addEventListener("click", () => {
+        statusEl.textContent = "Creating room...";
+        buzzStatusEl.textContent = "(not started)";
+        lastResultEl.textContent = "(none)";
+        btnStart.disabled = true;
+        btnEnd.disabled = true;
+
+        socket.emit("host:create_room", { maxPlayers: 6 }, (ack) => {
+          if (!ack?.ok) {
+            statusEl.textContent = "Failed to create room.";
+            return;
+          }
+
+          currentRoomCode = ack.roomCode;
+          roomCodeEl.textContent = ack.roomCode;
+          btnStart.disabled = false;
+          btnEnd.disabled = false;
+
+          setStateLabel("LOBBY");
+          statusEl.textContent = "Room created. Players can join now.";
+          renderPlayers([]);
+        });
+      });
+
+      // --------------------
+      // Start Game
+      // --------------------
+      btnStart.addEventListener("click", () => {
+        if (!currentRoomCode) return;
+
+        statusEl.textContent = "Starting game...";
+        socket.emit("host:start_game", { roomCode: currentRoomCode }, (ack) => {
+          if (!ack?.ok) {
+            statusEl.textContent = `Start failed: ${ack?.reason || "UNKNOWN"}`;
+            return;
+          }
+          statusEl.textContent = "Game started.";
+        });
+      });
+
+      // --------------------
+      // End Game (intentional kill)
+      // --------------------
+      btnEnd.addEventListener("click", () => {
+        if (!currentRoomCode) return;
+
+        const ok = confirm(
+          "End the game for everyone? (Phones will be booted)"
+        );
+        if (!ok) return;
+
+        statusEl.textContent = "Ending game...";
+        socket.emit("host:end_game", { roomCode: currentRoomCode }, (ack) => {
+          if (!ack?.ok) {
+            statusEl.textContent = `End failed: ${ack?.reason || "UNKNOWN"}`;
+            return;
+          }
+          statusEl.textContent = "Game ended.";
+          resetUIToLobby();
+        });
+      });
+
+      // --------------------
+      // Server Events
+      // --------------------
+      socket.on("server:player_list_updated", ({ players }) => {
+        renderPlayers(players);
+      });
+
+      socket.on("server:state_changed", ({ state }) => {
+        setStateLabel(state);
+        if (state === "ROUND_1_BUZZ_OPEN") {
+          buzzStatusEl.textContent = "Buzz is OPEN...";
+        }
+      });
+
+      socket.on("server:r1_buzz_update", ({ buzzOpen, winner }) => {
+        if (winner) {
+          buzzStatusEl.textContent = `Winner: ${winner.displayName}`;
+        } else if (buzzOpen) {
+          buzzStatusEl.textContent = "Buzz is OPEN...";
+        } else {
+          buzzStatusEl.textContent = "(buzz closed)";
+        }
+      });
+
+      socket.on(
+        "server:r1_answer_result",
+        ({ outcome, chosen, correctChoice, scoreDelta }) => {
+          if (outcome === "TIMEOUT") {
+            lastResultEl.textContent = `TIMEOUT (${scoreDelta}) — correct was ${correctChoice}`;
+          } else {
+            lastResultEl.textContent = `${outcome} (${scoreDelta}) — chose ${chosen}, correct ${correctChoice}`;
+          }
+        }
+      );
+
+      socket.on("server:error", (err) => {
+        statusEl.textContent = `Error: ${err?.code || "UNKNOWN"}`;
+
+        // If the room is closed (e.g. server killed it), reset UI.
+        if (err?.code === "ROOM_CLOSED") {
+          resetUIToLobby();
+        }
+      });
+
+      // Initial render
+      resetUIToLobby();
+    </script>
+  </body>
+</html>

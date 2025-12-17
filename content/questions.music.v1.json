@@ -1,0 +1,92 @@
+[
+  {
+    "id": "mus_001",
+    "categoryId": "music",
+    "prompt": "Which instrument has six strings and is commonly played by strumming?",
+    "answers": { "A": "Violin", "B": "Guitar", "C": "Flute", "D": "Trumpet" },
+    "correct": "B"
+  },
+  {
+    "id": "mus_002",
+    "categoryId": "music",
+    "prompt": "Which music genre is most associated with a DJ and turntables?",
+    "answers": {
+      "A": "Opera",
+      "B": "Electronic",
+      "C": "Bluegrass",
+      "D": "Classical"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "mus_003",
+    "categoryId": "music",
+    "prompt": "Which singer is famous for the album 'Thriller'?",
+    "answers": {
+      "A": "Prince",
+      "B": "Michael Jackson",
+      "C": "Elvis Presley",
+      "D": "Adele"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "mus_004",
+    "categoryId": "music",
+    "prompt": "Which band is known for the song 'Hey Jude'?",
+    "answers": { "A": "The Beatles", "B": "Queen", "C": "U2", "D": "Nirvana" },
+    "correct": "A"
+  },
+  {
+    "id": "mus_005",
+    "categoryId": "music",
+    "prompt": "A piano typically has how many keys?",
+    "answers": { "A": "66", "B": "76", "C": "88", "D": "99" },
+    "correct": "C"
+  },
+  {
+    "id": "mus_006",
+    "categoryId": "music",
+    "prompt": "Which term means the speed of music?",
+    "answers": { "A": "Tempo", "B": "Harmony", "C": "Verse", "D": "Chorus" },
+    "correct": "A"
+  },
+  {
+    "id": "mus_007",
+    "categoryId": "music",
+    "prompt": "Which singer is known for the song 'Rolling in the Deep'?",
+    "answers": {
+      "A": "Adele",
+      "B": "Beyoncé",
+      "C": "Taylor Swift",
+      "D": "Rihanna"
+    },
+    "correct": "A"
+  },
+  {
+    "id": "mus_008",
+    "categoryId": "music",
+    "prompt": "Which family of instruments includes the trumpet?",
+    "answers": {
+      "A": "Woodwind",
+      "B": "String",
+      "C": "Brass",
+      "D": "Percussion"
+    },
+    "correct": "C"
+  },
+  {
+    "id": "mus_009",
+    "categoryId": "music",
+    "prompt": "Which symbol means 'a short silence' in music?",
+    "answers": { "A": "Note", "B": "Rest", "C": "Clef", "D": "Sharp" },
+    "correct": "B"
+  },
+  {
+    "id": "mus_010",
+    "categoryId": "music",
+    "prompt": "Which term describes two or more notes played at the same time?",
+    "answers": { "A": "Chord", "B": "Beat", "C": "Scale", "D": "Bridge" },
+    "correct": "A"
+  }
+]

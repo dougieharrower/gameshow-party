@@ -1,0 +1,107 @@
+[
+  {
+    "id": "geo_001",
+    "categoryId": "geography",
+    "prompt": "What is the capital of Canada?",
+    "answers": {
+      "A": "Toronto",
+      "B": "Ottawa",
+      "C": "Vancouver",
+      "D": "Montreal"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "geo_002",
+    "categoryId": "geography",
+    "prompt": "What is the capital of France?",
+    "answers": { "A": "Paris", "B": "Lyon", "C": "Marseille", "D": "Nice" },
+    "correct": "A"
+  },
+  {
+    "id": "geo_003",
+    "categoryId": "geography",
+    "prompt": "What is the capital of Japan?",
+    "answers": { "A": "Kyoto", "B": "Osaka", "C": "Tokyo", "D": "Sapporo" },
+    "correct": "C"
+  },
+  {
+    "id": "geo_004",
+    "categoryId": "geography",
+    "prompt": "What is the capital of Australia?",
+    "answers": {
+      "A": "Sydney",
+      "B": "Melbourne",
+      "C": "Canberra",
+      "D": "Perth"
+    },
+    "correct": "C"
+  },
+  {
+    "id": "geo_005",
+    "categoryId": "geography",
+    "prompt": "Which U.S. state is known as the Sunshine State?",
+    "answers": {
+      "A": "California",
+      "B": "Florida",
+      "C": "Hawaii",
+      "D": "Arizona"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "geo_006",
+    "categoryId": "geography",
+    "prompt": "Which is the largest continent by land area?",
+    "answers": {
+      "A": "Africa",
+      "B": "Europe",
+      "C": "Asia",
+      "D": "South America"
+    },
+    "correct": "C"
+  },
+  {
+    "id": "geo_007",
+    "categoryId": "geography",
+    "prompt": "Which river runs through Egypt?",
+    "answers": { "A": "Amazon", "B": "Nile", "C": "Danube", "D": "Yangtze" },
+    "correct": "B"
+  },
+  {
+    "id": "geo_008",
+    "categoryId": "geography",
+    "prompt": "What is the capital of New York State?",
+    "answers": {
+      "A": "New York City",
+      "B": "Albany",
+      "C": "Buffalo",
+      "D": "Rochester"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "geo_009",
+    "categoryId": "geography",
+    "prompt": "What is the capital of California?",
+    "answers": {
+      "A": "Los Angeles",
+      "B": "San Francisco",
+      "C": "Sacramento",
+      "D": "San Diego"
+    },
+    "correct": "C"
+  },
+  {
+    "id": "geo_010",
+    "categoryId": "geography",
+    "prompt": "Which country is famous for the city of Rio de Janeiro?",
+    "answers": {
+      "A": "Brazil",
+      "B": "Argentina",
+      "C": "Portugal",
+      "D": "Mexico"
+    },
+    "correct": "A"
+  }
+]

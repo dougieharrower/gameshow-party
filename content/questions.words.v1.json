@@ -1,0 +1,102 @@
+[
+  {
+    "id": "wrd_001",
+    "categoryId": "words",
+    "prompt": "What is a synonym for 'happy'?",
+    "answers": { "A": "Angry", "B": "Joyful", "C": "Tired", "D": "Nervous" },
+    "correct": "B"
+  },
+  {
+    "id": "wrd_002",
+    "categoryId": "words",
+    "prompt": "Which word means 'a place where books are borrowed'?",
+    "answers": {
+      "A": "Laboratory",
+      "B": "Library",
+      "C": "Bakery",
+      "D": "Factory"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "wrd_003",
+    "categoryId": "words",
+    "prompt": "Which is the correct spelling?",
+    "answers": {
+      "A": "Definately",
+      "B": "Definitely",
+      "C": "Definatly",
+      "D": "Definatley"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "wrd_004",
+    "categoryId": "words",
+    "prompt": "What is the opposite of 'increase'?",
+    "answers": {
+      "A": "Improve",
+      "B": "Decrease",
+      "C": "Enlarge",
+      "D": "Extend"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "wrd_005",
+    "categoryId": "words",
+    "prompt": "Which word means 'to stop something from happening'?",
+    "answers": {
+      "A": "Prevent",
+      "B": "Permit",
+      "C": "Publish",
+      "D": "Perform"
+    },
+    "correct": "A"
+  },
+  {
+    "id": "wrd_006",
+    "categoryId": "words",
+    "prompt": "Which word is a noun?",
+    "answers": { "A": "Quickly", "B": "Blue", "C": "Run", "D": "Happiness" },
+    "correct": "D"
+  },
+  {
+    "id": "wrd_007",
+    "categoryId": "words",
+    "prompt": "What does 'bilingual' mean?",
+    "answers": {
+      "A": "Able to lift heavy weights",
+      "B": "Able to speak two languages",
+      "C": "Able to read minds",
+      "D": "Able to run fast"
+    },
+    "correct": "B"
+  },
+  {
+    "id": "wrd_008",
+    "categoryId": "words",
+    "prompt": "Which is a punctuation mark?",
+    "answers": { "A": "Comma", "B": "Camel", "C": "Comet", "D": "Combo" },
+    "correct": "A"
+  },
+  {
+    "id": "wrd_009",
+    "categoryId": "words",
+    "prompt": "What is the plural of 'child'?",
+    "answers": {
+      "A": "Childs",
+      "B": "Childes",
+      "C": "Children",
+      "D": "Childer"
+    },
+    "correct": "C"
+  },
+  {
+    "id": "wrd_010",
+    "categoryId": "words",
+    "prompt": "Which word means 'very big'?",
+    "answers": { "A": "Tiny", "B": "Huge", "C": "Short", "D": "Weak" },
+    "correct": "B"
+  }
+]
