@@ -67,10 +67,20 @@
       #questionText {
         white-space: pre-wrap;
       }
-      /* NEW */
       .timer {
         font-weight: 900;
         letter-spacing: 0.3px;
+      }
+
+      /* NEW: options pill */
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        font-size: 12px;
+        color: #444;
+        margin-left: 6px;
       }
     </style>
   </head>
@@ -94,7 +104,10 @@
       <div class="muted">Joined</div>
       <h2 id="joinedLabel">Waiting…</h2>
       <div class="muted">Keep this screen open.</div>
-      <div class="muted msg">State: <span id="stateLabel">LOBBY</span></div>
+      <div class="muted msg">
+        State: <span id="stateLabel">LOBBY</span>
+        <span id="familyPill" class="pill">standard</span>
+      </div>
     </div>
 
     <!-- CATEGORY PICK -->
@@ -106,7 +119,6 @@
       <div id="pickOptions" class="stack"></div>
 
       <div id="pickMsg" class="muted msg small"></div>
-      <!-- NEW: live countdown -->
       <div id="pickCountdown" class="muted msg small timer"></div>
     </div>
 
@@ -114,7 +126,6 @@
     <div id="fastestCard" class="card hidden">
       <div class="muted">Round 1</div>
       <h2 id="fastestHeader">FASTEST FINGER</h2>
-      <!-- NEW: live countdown -->
       <div id="fastestCountdown" class="muted msg small timer"></div>
 
       <div id="questionText" class="muted msg"></div>
@@ -158,6 +169,7 @@
       const errorEl = document.getElementById("error");
       const joinedLabel = document.getElementById("joinedLabel");
       const stateLabelEl = document.getElementById("stateLabel");
+      const familyPillEl = document.getElementById("familyPill");
 
       const pickHelp = document.getElementById("pickHelp");
       const pickOptionsEl = document.getElementById("pickOptions");
@@ -167,7 +179,6 @@
       const questionText = document.getElementById("questionText");
       const fastestMsg = document.getElementById("fastestMsg");
 
-      // NEW: countdown els
       const pickCountdownEl = document.getElementById("pickCountdown");
       const fastestCountdownEl = document.getElementById("fastestCountdown");
 
@@ -175,6 +186,13 @@
       let myPlayerId = null;
       let myPlayerToken = null;
       let myAvatarId = null;
+
+      // NEW: options snapshot
+      let roomOptions = {
+        contentRating: "standard",
+        middleCount: 0,
+        selectedMiddleGames: null,
+      };
 
       // current question cache (from server:r1_question_presented)
       let currentQuestion = null; // { questionId, prompt, answers }
@@ -186,12 +204,17 @@
       let currentPick = null; // { chooserPlayerId, chooserDisplayName, options: [{id,name}], timeoutMs, endsAt? }
       let pickLocked = false;
 
-      // NEW: deadline-based countdowns (epoch ms)
+      // deadline-based countdowns (epoch ms)
       let pickEndsAt = null;
       let questionEndsAt = null;
 
       function setStateLabel(state) {
         stateLabelEl.textContent = state || "UNKNOWN";
+      }
+
+      function applyOptionsToUI() {
+        const rating = roomOptions?.contentRating || "standard";
+        familyPillEl.textContent = rating;
       }
 
       function showOnly(el) {
@@ -231,6 +254,13 @@
         myPlayerToken = null;
         myAvatarId = null;
 
+        roomOptions = {
+          contentRating: "standard",
+          middleCount: 0,
+          selectedMiddleGames: null,
+        };
+        applyOptionsToUI();
+
         currentQuestion = null;
         fastestState = null;
 
@@ -257,7 +287,7 @@
           .filter((o) => o.id);
       }
 
-      // NEW: countdown helpers
+      // countdown helpers
       function msLeft(endsAt) {
         if (!Number.isFinite(endsAt)) return null;
         return Math.max(0, endsAt - Date.now());
@@ -267,7 +297,7 @@
       }
 
       function tickCountdowns() {
-        // Category pick countdown (only show while pick card is visible)
+        // Category pick countdown
         if (
           !pickCard.classList.contains("hidden") &&
           Number.isFinite(pickEndsAt)
@@ -280,7 +310,7 @@
           pickCountdownEl.textContent = "";
         }
 
-        // Question countdown (only show while fastest card is visible)
+        // Question countdown
         if (
           !fastestCard.classList.contains("hidden") &&
           Number.isFinite(questionEndsAt)
@@ -357,7 +387,7 @@
           pickOptionsEl.appendChild(btn);
         });
 
-        // If server provides endsAt, prefer it. Else derive from timeoutMs.
+        // Prefer server-provided endsAt
         if (Number.isFinite(currentPick.endsAt)) {
           pickEndsAt = currentPick.endsAt;
         } else {
@@ -481,6 +511,7 @@
             ack.displayName
           }!${myAvatarId ? " [" + myAvatarId + "]" : ""}`;
           setStateLabel(ack.state || "LOBBY");
+          applyOptionsToUI();
         });
       });
 
@@ -506,8 +537,14 @@
           (ack) => {
             if (!ack?.ok) {
               clearSession();
-              errorEl.textContent =
-                "Could not rejoin (game ended or token invalid). Please join again.";
+
+              if (ack?.reason === "KICKED") {
+                errorEl.textContent = "You were kicked from this room.";
+              } else {
+                errorEl.textContent =
+                  "Could not rejoin (game ended or token invalid). Please join again.";
+              }
+
               showOnly(joinCard);
               return;
             }
@@ -538,6 +575,20 @@
       }
 
       // --------------------
+      // Options snapshot (authoritative)
+      // --------------------
+      socket.on("server:options_updated", (payload = {}) => {
+        // Ignore if we're not in this room yet (but still allow it to populate UI after join)
+        if (payload?.roomCode && myRoomCode && payload.roomCode !== myRoomCode)
+          return;
+
+        if (payload?.options) {
+          roomOptions = payload.options;
+          applyOptionsToUI();
+        }
+      });
+
+      // --------------------
       // Question presented (prompt + answers)
       // --------------------
       socket.on("server:r1_question_presented", (payload) => {
@@ -546,7 +597,6 @@
 
         showOnly(fastestCard);
 
-        // If server provides endsAt, use it; else leave questionEndsAt alone (state may bring it)
         if (Number.isFinite(payload?.endsAt)) questionEndsAt = payload.endsAt;
 
         if (!fastestState || fastestState.questionId !== questionId) {
@@ -572,7 +622,6 @@
 
         if (payload?.isOpen) showOnly(fastestCard);
 
-        // If server provides endsAt, use it
         if (Number.isFinite(payload?.endsAt)) questionEndsAt = payload.endsAt;
         else if (payload?.endsAt === null) questionEndsAt = null;
 
@@ -588,7 +637,7 @@
           chooserDisplayName: payload?.chooserDisplayName ?? null,
           options: payload?.options || [],
           timeoutMs: payload?.timeoutMs || null,
-          endsAt: payload?.endsAt ?? null, // NEW (optional)
+          endsAt: payload?.endsAt ?? null,
         };
 
         showOnly(pickCard);
@@ -598,13 +647,18 @@
       // --------------------
       // State changes
       // --------------------
-      socket.on("server:state_changed", ({ state, r1 } = {}) => {
+      socket.on("server:state_changed", ({ state, r1, options } = {}) => {
         setStateLabel(state);
+
+        // Keep options in sync if server includes them here too
+        if (options) {
+          roomOptions = options;
+          applyOptionsToUI();
+        }
 
         const hasSession = !!(myRoomCode || localStorage.getItem(LS_ROOM));
         if (!hasSession) return;
 
-        // NEW: accept deadlines from state snapshot if you include them server-side
         if (r1) {
           if (Number.isFinite(r1.pickEndsAt)) pickEndsAt = r1.pickEndsAt;
           else if (r1.pickEndsAt === null) pickEndsAt = null;
@@ -635,10 +689,6 @@
 
         if (state === "ROUND_1_QUESTION_OPEN") {
           showOnly(fastestCard);
-
-          // Fallback: if server doesn't send endsAt yet, and we have a question,
-          // derive from the question's timeLimit if you decide to include it later.
-          // (Best solution: server sends endsAt.)
           syncFastestUI();
           return;
         }
@@ -737,7 +787,7 @@
       );
 
       // --------------------
-      // Tapping an answer (Option 2)
+      // Tapping an answer
       // --------------------
       document.querySelectorAll(".choice").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -773,7 +823,20 @@
       });
 
       // --------------------
-      // Room closed
+      // Kicked by host (lobby-only, but handle anytime)
+      // --------------------
+      socket.on("server:player_kicked", (payload = {}) => {
+        // If roomCode is present and doesn't match, ignore
+        if (payload?.roomCode && myRoomCode && payload.roomCode !== myRoomCode)
+          return;
+
+        clearSession();
+        errorEl.textContent = "You were kicked from this room.";
+        showOnly(joinCard);
+      });
+
+      // --------------------
+      // Room closed / errors
       // --------------------
       socket.on("server:error", (err) => {
         if (err?.code === "ROOM_CLOSED") {
@@ -788,6 +851,7 @@
 
       // Kick off
       setStateLabel("LOBBY");
+      applyOptionsToUI();
       tryAutoRejoin();
     </script>
   </body>

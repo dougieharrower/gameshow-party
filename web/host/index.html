@@ -80,11 +80,79 @@
         background: #eee;
         margin: 12px 0;
       }
-
-      /* NEW: timers look a bit punchier */
       .timer {
         font-weight: 800;
         letter-spacing: 0.3px;
+      }
+
+      /* NEW: options UI */
+      .row2 {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .label {
+        font-size: 13px;
+        color: #333;
+        font-weight: 650;
+      }
+      .hint {
+        font-size: 12px;
+        color: #666;
+        margin-top: 6px;
+      }
+      select,
+      input[type="checkbox"] {
+        cursor: pointer;
+      }
+      .lock {
+        display: none;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px dashed #bbb;
+        border-radius: 8px;
+        background: #fafafa;
+        color: #444;
+      }
+      .playerRow {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        margin: 6px 0;
+      }
+      .playerLeft {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .playerName {
+        font-weight: 700;
+      }
+      .playerMeta {
+        font-size: 12px;
+        color: #666;
+      }
+      .kickBtn {
+        padding: 6px 10px;
+        border: 1px solid #d33;
+        border-radius: 8px;
+        background: #fff;
+        color: #a00;
+      }
+      .kickBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .pill2 {
+        display: inline-block;
+        padding: 2px 8px;
+        border: 1px solid #ddd;
+        border-radius: 999px;
+        font-size: 12px;
+        color: #444;
+        margin-left: 6px;
       }
     </style>
   </head>
@@ -99,6 +167,7 @@
 
         <div class="muted spacer">
           State: <span id="stateLabel">LOBBY</span>
+          <span id="gameStatusPill" class="pill2">lobby</span>
         </div>
 
         <div class="spacer">
@@ -111,6 +180,60 @@
         </div>
 
         <div id="status" class="muted spacer"></div>
+
+        <div id="optionsLockedNotice" class="lock">
+          Options are locked once the game starts.
+        </div>
+      </div>
+
+      <!-- OPTIONS (LOBBY ONLY) -->
+      <div class="card" id="optionsCard">
+        <div class="muted">Options</div>
+
+        <div class="spacer">
+          <div class="row2">
+            <span class="label">Family filter</span>
+            <label
+              class="muted"
+              style="display: flex; gap: 8px; align-items: center"
+            >
+              <input id="optFamily" type="checkbox" />
+              <span id="optFamilyLabel">Off</span>
+            </label>
+          </div>
+          <div class="hint">
+            Filters content pools (questions/prompts) based on rating.
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="spacer">
+          <div class="row2">
+            <span class="label">Middle rounds</span>
+            <select id="optMiddleCount">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+            <span class="muted" id="middleCapHint"></span>
+          </div>
+          <div class="hint">
+            Round 1 is always Fastest Finger. Final round is always Podium.
+            Middle rounds are randomly selected from available game types (as
+            you add them).
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="muted spacer">Kick players (lobby only)</div>
+        <div id="kickList" class="spacer"></div>
+
+        <div class="hint" id="kickHint">
+          Kicked players can’t rejoin this room.
+        </div>
       </div>
 
       <!-- ROUND 1 HUD -->
@@ -131,7 +254,6 @@
             <div class="v" id="r1Chooser">—</div>
           </div>
 
-          <!-- NEW: question countdown -->
           <div class="kv">
             <div class="k">Question Timer</div>
             <div class="v timer" id="r1QuestionTimer">—</div>
@@ -141,7 +263,6 @@
         <div class="hr"></div>
 
         <div class="muted">Category Pick</div>
-        <!-- NEW: category countdown appended here -->
         <div id="r1PickStatus" class="muted spacer">(not active)</div>
         <div id="r1PickOptions" class="spacer"></div>
       </div>
@@ -181,22 +302,58 @@
       const r1ChooserEl = document.getElementById("r1Chooser");
       const r1PickStatusEl = document.getElementById("r1PickStatus");
       const r1PickOptionsEl = document.getElementById("r1PickOptions");
-
-      // NEW: timer UI
       const r1QuestionTimerEl = document.getElementById("r1QuestionTimer");
+
+      // NEW: options elements
+      const optionsCardEl = document.getElementById("optionsCard");
+      const optionsLockedNoticeEl = document.getElementById(
+        "optionsLockedNotice"
+      );
+      const gameStatusPillEl = document.getElementById("gameStatusPill");
+
+      const optFamilyEl = document.getElementById("optFamily");
+      const optFamilyLabelEl = document.getElementById("optFamilyLabel");
+      const optMiddleCountEl = document.getElementById("optMiddleCount");
+      const middleCapHintEl = document.getElementById("middleCapHint");
+
+      const kickListEl = document.getElementById("kickList");
 
       let currentRoomCode = null;
 
-      // NEW: countdown deadlines (epoch ms)
+      // countdown deadlines (epoch ms)
       let pickEndsAt = null;
       let questionEndsAt = null;
 
-      // NEW: baseline strings for pick status (so the interval can append countdown)
+      // pick UI helper
       let pickStatusBaseText = "(not active)";
       let pickActive = false;
 
+      // NEW: options + status
+      let gameStatus = "lobby"; // "lobby" | "in_progress" | "finished"
+      let roomOptions = {
+        contentRating: "standard",
+        middleCount: 0,
+        selectedMiddleGames: null,
+      };
+      let availableMiddleGames = [];
+
       function setStateLabel(state) {
         stateLabelEl.textContent = state || "UNKNOWN";
+      }
+
+      function setGameStatus(next) {
+        gameStatus = next || "lobby";
+        gameStatusPillEl.textContent = gameStatus;
+        const inLobby = gameStatus === "lobby";
+
+        // Options screen inaccessible once started
+        optionsCardEl.style.display = inLobby ? "block" : "none";
+        optionsLockedNoticeEl.style.display = inLobby ? "none" : "block";
+
+        // Also disable kick controls if we ever decide to leave it visible
+        // (currently we fully hide, but keep safe)
+        optFamilyEl.disabled = !inLobby;
+        optMiddleCountEl.disabled = !inLobby;
       }
 
       function renderPlayers(players) {
@@ -220,6 +377,62 @@
           const avatar = p.avatarId ? `[${p.avatarId}] ` : "";
           li.textContent = `${avatar}${p.displayName}${conn} — ${score}`;
           playerListEl.appendChild(li);
+        });
+
+        // Keep kick list in sync
+        renderKickList(sorted);
+      }
+
+      function renderKickList(players) {
+        kickListEl.innerHTML = "";
+        if (gameStatus !== "lobby") {
+          const div = document.createElement("div");
+          div.className = "muted";
+          div.textContent = "(locked once game starts)";
+          kickListEl.appendChild(div);
+          return;
+        }
+
+        if (!players || players.length === 0) {
+          const div = document.createElement("div");
+          div.className = "muted";
+          div.textContent = "(no players to kick)";
+          kickListEl.appendChild(div);
+          return;
+        }
+
+        players.forEach((p) => {
+          const row = document.createElement("div");
+          row.className = "playerRow";
+
+          const left = document.createElement("div");
+          left.className = "playerLeft";
+
+          const name = document.createElement("div");
+          name.className = "playerName";
+          name.textContent = p.displayName;
+
+          const meta = document.createElement("div");
+          meta.className = "playerMeta";
+          meta.textContent = `${p.avatarId ? "[" + p.avatarId + "] " : ""}${
+            p.isConnected === false ? "offline" : "online"
+          } • score ${p.score ?? 0}`;
+
+          left.appendChild(name);
+          left.appendChild(meta);
+
+          const btn = document.createElement("button");
+          btn.className = "kickBtn";
+          btn.textContent = "Kick";
+          btn.disabled = !currentRoomCode || gameStatus !== "lobby";
+          btn.addEventListener("click", () =>
+            kickPlayer(p.playerId, p.displayName)
+          );
+
+          row.appendChild(left);
+          row.appendChild(btn);
+
+          kickListEl.appendChild(row);
         });
       }
 
@@ -301,27 +514,105 @@
         fastestMetaEl.textContent = "";
       }
 
+      function applyOptionsToUI() {
+        // contentRating -> checkbox
+        const isFamily = roomOptions.contentRating === "family";
+        optFamilyEl.checked = isFamily;
+        optFamilyLabelEl.textContent = isFamily ? "On" : "Off";
+
+        // middleCount selector
+        const cap = Math.min(3, availableMiddleGames.length);
+        middleCapHintEl.textContent = `(available: ${availableMiddleGames.length}, max: ${cap})`;
+
+        // clamp UI options list availability
+        [...optMiddleCountEl.options].forEach((o) => {
+          const v = Number(o.value);
+          o.disabled = v > cap;
+        });
+
+        // ensure selected value is valid
+        const current = Number(roomOptions.middleCount) || 0;
+        const clamped = Math.max(0, Math.min(current, cap));
+        optMiddleCountEl.value = String(clamped);
+      }
+
+      function requestOptionsUpdate(partial) {
+        if (!currentRoomCode) return;
+        if (gameStatus !== "lobby") return;
+
+        socket.emit(
+          "host:update_options",
+          { roomCode: currentRoomCode, options: partial },
+          (ack) => {
+            if (!ack?.ok) {
+              statusEl.textContent = `Options update failed: ${
+                ack?.reason || "UNKNOWN"
+              }`;
+              // bounce UI back to last known server truth
+              applyOptionsToUI();
+              return;
+            }
+            statusEl.textContent = "Options saved.";
+          }
+        );
+      }
+
+      function kickPlayer(playerId, displayName) {
+        if (!currentRoomCode) return;
+        if (gameStatus !== "lobby") return;
+
+        const ok = confirm(
+          `Kick ${
+            displayName || "this player"
+          }? They won't be able to rejoin this room.`
+        );
+        if (!ok) return;
+
+        socket.emit(
+          "host:kick_player",
+          { roomCode: currentRoomCode, playerId },
+          (ack) => {
+            if (!ack?.ok) {
+              statusEl.textContent = `Kick failed: ${ack?.reason || "UNKNOWN"}`;
+              return;
+            }
+            statusEl.textContent = `Kicked ${displayName || "player"}.`;
+          }
+        );
+      }
+
       function resetUIToLobby() {
         currentRoomCode = null;
         roomCodeEl.textContent = "----";
         btnStart.disabled = true;
         btnEnd.disabled = true;
 
-        // NEW: clear countdowns
         pickEndsAt = null;
         questionEndsAt = null;
         r1QuestionTimerEl.textContent = "—";
 
         setStateLabel("LOBBY");
+        setGameStatus("lobby");
+
+        // default options
+        roomOptions = {
+          contentRating: "standard",
+          middleCount: 0,
+          selectedMiddleGames: null,
+        };
+        availableMiddleGames = [];
+        applyOptionsToUI();
+
         resetFastestUI();
         lastResultEl.textContent = "(none)";
         renderPlayers([]);
         setR1Hud({});
         setPickUIInactive();
+        statusEl.textContent = "";
       }
 
       // --------------------
-      // NEW: Countdown render loop
+      // Countdown render loop
       // --------------------
       function msLeft(endsAt) {
         if (!Number.isFinite(endsAt)) return null;
@@ -334,7 +625,6 @@
       }
 
       function tickCountdowns() {
-        // Category pick countdown
         if (pickActive && Number.isFinite(pickEndsAt)) {
           const left = msLeft(pickEndsAt);
           if (left == null) {
@@ -347,11 +637,9 @@
             )})`;
           }
         } else {
-          // ensure inactive looks clean
           if (!pickActive) r1PickStatusEl.textContent = pickStatusBaseText;
         }
 
-        // Question countdown
         if (Number.isFinite(questionEndsAt)) {
           const left = msLeft(questionEndsAt);
           if (left == null) {
@@ -391,7 +679,6 @@
         setR1Hud({});
         setPickUIInactive();
 
-        // NEW: clear timers
         pickEndsAt = null;
         questionEndsAt = null;
 
@@ -407,6 +694,8 @@
           btnEnd.disabled = false;
 
           setStateLabel("LOBBY");
+          // gameStatus/options will come via server events; keep optimistic
+          setGameStatus("lobby");
           statusEl.textContent = "Room created. Players can join now.";
           renderPlayers([]);
         });
@@ -451,76 +740,95 @@
       });
 
       // --------------------
+      // Options UI events
+      // --------------------
+      optFamilyEl.addEventListener("change", () => {
+        const next = optFamilyEl.checked ? "family" : "standard";
+        optFamilyLabelEl.textContent = optFamilyEl.checked ? "On" : "Off";
+        requestOptionsUpdate({ contentRating: next });
+      });
+
+      optMiddleCountEl.addEventListener("change", () => {
+        const v = Number(optMiddleCountEl.value);
+        requestOptionsUpdate({ middleCount: v });
+      });
+
+      // --------------------
       // Server Events
       // --------------------
       socket.on("server:player_list_updated", ({ players }) => {
         renderPlayers(players);
       });
 
-      socket.on("server:state_changed", ({ state, r1 } = {}) => {
-        setStateLabel(state);
+      // NEW: options snapshot (authoritative)
+      socket.on("server:options_updated", (payload = {}) => {
+        if (
+          payload.roomCode &&
+          currentRoomCode &&
+          payload.roomCode !== currentRoomCode
+        )
+          return;
 
-        // HUD updates (safe even if r1 missing)
-        if (r1) {
-          setR1Hud({
-            blockIndex: r1.blockIndex,
-            totalBlocks: 4, // R1_BLOCKS_TOTAL
-            categoryId: r1.currentCategoryId,
-            categoryName: r1.currentCategoryName,
-            chooserDisplayName: r1.chooserDisplayName,
-          });
+        if (payload.gameStatus) setGameStatus(payload.gameStatus);
 
-          // NEW: ingest deadlines from server state snapshot
-          if (Number.isFinite(r1.pickEndsAt)) pickEndsAt = r1.pickEndsAt;
-          else if (r1.pickEndsAt === null) pickEndsAt = null;
+        if (payload.options) roomOptions = payload.options;
+        if (Array.isArray(payload.availableMiddleGames))
+          availableMiddleGames = payload.availableMiddleGames;
 
-          if (Number.isFinite(r1.questionEndsAt))
-            questionEndsAt = r1.questionEndsAt;
-          else if (r1.questionEndsAt === null) questionEndsAt = null;
-        }
-
-        // Fastest Finger state label
-        if (state === "ROUND_1_QUESTION_OPEN") {
-          fastestStatusEl.textContent = "Open — first correct tap wins";
-        } else if (
-          state === "ROUND_1_CATEGORY_PICK" ||
-          state === "ROUND_1_INTRO" ||
-          state === "ROUND_1_COMPLETE" ||
-          state === "LOBBY"
-        ) {
-          // neutral
-        } else {
-          // unknown/other states
-        }
-
-        if (state === "ROUND_1_CATEGORY_PICK" && r1) {
-          setPickUIActive({
-            chooserDisplayName: r1.chooserDisplayName,
-            options: r1.pickOptionsDetailed || [],
-          });
-        } else {
-          setPickUIInactive();
-        }
+        applyOptionsToUI();
       });
 
-      // Fastest finger snapshot (also carries endsAt in your updated server)
+      socket.on(
+        "server:state_changed",
+        ({ state, r1, gameStatus: gs, options } = {}) => {
+          setStateLabel(state);
+
+          // Keep gameStatus/options in sync if server includes them here too
+          if (gs) setGameStatus(gs);
+          if (options) {
+            roomOptions = options;
+            applyOptionsToUI();
+          }
+
+          if (r1) {
+            setR1Hud({
+              blockIndex: r1.blockIndex,
+              totalBlocks: 4,
+              categoryId: r1.currentCategoryId,
+              categoryName: r1.currentCategoryName,
+              chooserDisplayName: r1.chooserDisplayName,
+            });
+
+            if (Number.isFinite(r1.pickEndsAt)) pickEndsAt = r1.pickEndsAt;
+            else if (r1.pickEndsAt === null) pickEndsAt = null;
+
+            if (Number.isFinite(r1.questionEndsAt))
+              questionEndsAt = r1.questionEndsAt;
+            else if (r1.questionEndsAt === null) questionEndsAt = null;
+          }
+
+          if (state === "ROUND_1_CATEGORY_PICK" && r1) {
+            setPickUIActive({
+              chooserDisplayName: r1.chooserDisplayName,
+              options: r1.pickOptionsDetailed || [],
+            });
+          } else {
+            setPickUIInactive();
+          }
+        }
+      );
+
       socket.on("server:r1_fastest_state", (payload) => {
         setFastestStatus(payload);
-
-        // NEW: question deadline can come from here too
         if (Number.isFinite(payload?.endsAt)) questionEndsAt = payload.endsAt;
         else if (payload?.endsAt === null) questionEndsAt = null;
       });
 
-      // Question prompt shown (also can carry endsAt)
       socket.on("server:r1_question_presented", ({ prompt, endsAt }) => {
         lastResultEl.textContent = `Q: ${prompt}`;
-
-        // NEW: question deadline can come from here too
         if (Number.isFinite(endsAt)) questionEndsAt = endsAt;
       });
 
-      // Wrong tap locks out
       socket.on(
         "server:r1_answer_locked_out",
         ({ answeringDisplayName, answeringPlayerId, chosen, scoreDelta }) => {
@@ -529,25 +837,19 @@
         }
       );
 
-      // First correct winner
       socket.on(
         "server:r1_answer_winner",
         ({ winnerDisplayName, winnerPlayerId, chosen, scoreDelta }) => {
           const who = winnerDisplayName || winnerPlayerId || "Someone";
           lastResultEl.textContent = `${who} WINS (${scoreDelta}) — chose ${chosen}`;
-
-          // NEW: winner means question is effectively done; clear timer display
           questionEndsAt = null;
         }
       );
 
-      // No winner in time
       socket.on(
         "server:r1_answer_timeout",
         ({ correctChoice, scoreDeltaIfNoAttempt }) => {
           lastResultEl.textContent = `TIMEOUT — correct was ${correctChoice} (no-attempt penalty ${scoreDeltaIfNoAttempt})`;
-
-          // NEW: question window closed
           questionEndsAt = null;
         }
       );

@@ -16,7 +16,7 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer);
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Jackbox-style reconnect window
 const PLAYER_REJOIN_GRACE_MS = 60_000; // 60s
@@ -45,6 +45,61 @@ const AVATARS = [
   "dog",
   "tiger",
 ];
+// ----------------------
+// Game options (v0.1)
+// ----------------------
+const DEFAULT_ROOM_OPTIONS = {
+  contentRating: "standard", // "family" | "standard"
+  middleCount: 0, // 0..3 (server clamps later)
+  selectedMiddleGames: null, // paid-only later; null for now
+};
+
+// For now, you have 0 middle games available.
+// Later, this becomes e.g. ["triangulate", ...]
+function getAvailableMiddleGamesForRoom(/* room */) {
+  return [];
+}
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function sanitizeOptions(room, incoming = {}) {
+  const next = { ...room.options };
+
+  if (
+    incoming.contentRating === "family" ||
+    incoming.contentRating === "standard"
+  ) {
+    next.contentRating = incoming.contentRating;
+  }
+
+  if (Number.isFinite(incoming.middleCount)) {
+    const available = getAvailableMiddleGamesForRoom(room).length;
+    const cap = Math.min(3, available); // dynamic cap
+    next.middleCount = clamp(Math.trunc(incoming.middleCount), 0, cap);
+  }
+
+  // Paid-only later:
+  // - if you implement paid, validate incoming.selectedMiddleGames ∈ available
+  // - for now ignore any client-sent selectedMiddleGames
+  next.selectedMiddleGames = null;
+
+  return next;
+}
+
+function broadcastOptions(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+
+  io.to(roomCode).emit("server:options_updated", {
+    roomCode,
+    gameStatus: room.gameStatus,
+    options: room.options,
+    // helpful for UI gating (shows why middleCount is capped)
+    availableMiddleGames: getAvailableMiddleGamesForRoom(room),
+  });
+}
 
 function pickAvatar(room) {
   const used = new Set(Object.values(room.players).map((p) => p.avatarId));
@@ -241,6 +296,8 @@ function broadcastState(roomCode) {
 
   io.to(roomCode).emit("server:state_changed", {
     roomCode,
+    gameStatus: room.gameStatus,
+    options: room.options,
     state: room.state,
     roundId: room.roundId,
     r1:
@@ -720,6 +777,9 @@ io.on("connection", (socket) => {
         usedQuestionIds: new Set(),
         state: "LOBBY",
         roundId: 0,
+        gameStatus: "lobby", // "lobby" | "in_progress" | "finished"
+        options: { ...DEFAULT_ROOM_OPTIONS },
+        kickedTokens: new Set(), // tokens blocked from joining/rejoining
         r1: {
           blockIndex: 0, // 1..4
           usedCategoryIds: new Set(), // excludes general
@@ -748,6 +808,7 @@ io.on("connection", (socket) => {
       socket.emit("server:room_created", payload);
       broadcastState(roomCode);
       broadcastPlayerList(roomCode);
+      broadcastOptions(roomCode);
 
       console.log(`Room created: ${roomCode} by host ${socket.id}`);
     } catch (err) {
@@ -756,6 +817,86 @@ io.on("connection", (socket) => {
         ack({ ok: false, error: "CREATE_ROOM_FAILED" });
       socket.emit("server:error", { code: "CREATE_ROOM_FAILED" });
     }
+  });
+
+  socket.on("host:update_options", ({ roomCode, options } = {}, ack) => {
+    const code = String(roomCode || "")
+      .trim()
+      .toUpperCase();
+    const room = rooms[code];
+
+    if (!room) {
+      if (typeof ack === "function")
+        ack({ ok: false, reason: "ROOM_NOT_FOUND" });
+      return;
+    }
+    if (room.hostSocketId !== socket.id) {
+      if (typeof ack === "function") ack({ ok: false, reason: "NOT_HOST" });
+      return;
+    }
+    if (room.gameStatus !== "lobby") {
+      if (typeof ack === "function")
+        ack({ ok: false, reason: "OPTIONS_LOCKED" });
+      return;
+    }
+
+    room.options = sanitizeOptions(room, options);
+
+    broadcastOptions(code);
+    broadcastState(code); // so host UI has one unified stream if desired
+
+    if (typeof ack === "function") ack({ ok: true, options: room.options });
+  });
+
+  socket.on("host:kick_player", ({ roomCode, playerId } = {}, ack) => {
+    const code = String(roomCode || "")
+      .trim()
+      .toUpperCase();
+    const room = rooms[code];
+
+    if (!room) {
+      if (typeof ack === "function")
+        ack({ ok: false, reason: "ROOM_NOT_FOUND" });
+      return;
+    }
+    if (room.hostSocketId !== socket.id) {
+      if (typeof ack === "function") ack({ ok: false, reason: "NOT_HOST" });
+      return;
+    }
+    if (room.gameStatus !== "lobby") {
+      if (typeof ack === "function")
+        ack({ ok: false, reason: "OPTIONS_LOCKED" });
+      return;
+    }
+
+    const pid = String(playerId || "").trim();
+    const p = room.players[pid];
+
+    if (!p) {
+      if (typeof ack === "function")
+        ack({ ok: false, reason: "PLAYER_NOT_FOUND" });
+      return;
+    }
+
+    // Block future rejoin attempts from that device (token-based)
+    if (p.playerToken) {
+      room.kickedTokens.add(p.playerToken);
+      delete room.playerTokens[p.playerToken];
+    }
+
+    // Tell the phone it was kicked (if still connected)
+    io.to(pid).emit("server:player_kicked", {
+      roomCode: code,
+      reason: "KICKED_BY_HOST",
+    });
+
+    // Remove from room
+    delete room.players[pid];
+
+    broadcastPlayerList(code);
+    broadcastState(code);
+
+    if (typeof ack === "function") ack({ ok: true });
   });
 
   // Phone joins a room (first time)
@@ -814,6 +955,14 @@ io.on("connection", (socket) => {
       });
     }
 
+    // Send options snapshot to THIS phone immediately
+    socket.emit("server:options_updated", {
+      roomCode: code,
+      gameStatus: room.gameStatus,
+      options: room.options,
+      availableMiddleGames: getAvailableMiddleGamesForRoom(room),
+    });
+
     broadcastPlayerList(code);
     broadcastState(code);
 
@@ -827,6 +976,11 @@ io.on("connection", (socket) => {
       .toUpperCase();
     const token = String(playerToken || "").trim();
     const room = rooms[code];
+
+    if (room.kickedTokens && room.kickedTokens.has(token)) {
+      if (typeof ack === "function") ack({ ok: false, reason: "KICKED" });
+      return;
+    }
 
     if (!room) {
       if (typeof ack === "function")
@@ -899,6 +1053,16 @@ io.on("connection", (socket) => {
       .trim()
       .toUpperCase();
     const room = rooms[code];
+
+    if (room.gameStatus !== "lobby") {
+      if (typeof ack === "function")
+        ack({ ok: false, reason: "GAME_ALREADY_STARTED" });
+      return;
+    }
+
+    // Lock in options by flipping status
+    room.gameStatus = "in_progress";
+    broadcastOptions(code);
 
     if (!room) {
       if (typeof ack === "function")
