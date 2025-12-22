@@ -1237,6 +1237,10 @@
         }
       });
 
+      socket.on("server:lobby_name_twin", (p) => {
+        console.log(`[NameTwin] ${p.displayName} → ${p.personName}: ${p.fact}`);
+      });
+
       // Initial render
       resetUIToLobby();
     </script>

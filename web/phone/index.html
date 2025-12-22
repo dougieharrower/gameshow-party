@@ -1263,6 +1263,10 @@
         errorEl.textContent = `Error: ${err?.code || "UNKNOWN"}`;
       });
 
+      socket.on("server:lobby_name_twin", (p) => {
+        console.log(`Your name twin: ${p.personName} — ${p.fact}`);
+      });
+
       // Kick off
       setStateLabel("LOBBY");
       applyOptionsToUI();

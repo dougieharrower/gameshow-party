@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Web Speech Voice Tester</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+        margin: 24px;
+        color: #111;
+      }
+      .wrap {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 8px;
+      }
+      .muted {
+        color: #555;
+      }
+      .card {
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 16px;
+        margin: 14px 0;
+      }
+      label {
+        display: block;
+        font-weight: 650;
+        margin-top: 10px;
+      }
+      select,
+      textarea,
+      input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+      textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .row3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 14px;
+      }
+      .btns {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      button {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid #bbb;
+        background: #f6f6f6;
+        cursor: pointer;
+        font-weight: 650;
+      }
+      button.primary {
+        background: #111;
+        color: #fff;
+        border-color: #111;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .kvs {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 6px 12px;
+        margin-top: 10px;
+      }
+      code {
+        background: #f2f2f2;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      .pill {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid #ddd;
+        background: #fafafa;
+        font-size: 12px;
+        margin-left: 8px;
+      }
+      .warn {
+        color: #8a3b00;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Chrome Voice Tester</h1>
+      <div class="muted">
+        Uses the browser’s built-in <code>speechSynthesis</code>. Click
+        <b>Speak</b> once to “unlock” audio.
+        <span id="status" class="pill">Loading voices…</span>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div>
+            <label for="voiceSelect">Voice</label>
+            <select id="voiceSelect"></select>
+            <div class="kvs muted" style="margin-top: 10px">
+              <div>Selected</div>
+              <div id="voiceMeta">—</div>
+              <div>Total voices</div>
+              <div id="voiceCount">—</div>
+            </div>
+          </div>
+
+          <div>
+            <label for="styleSelect">Phrase style (changes wording)</label>
+            <select id="styleSelect">
+              <option value="plain">Plain</option>
+              <option value="gameshow">Game show host</option>
+              <option value="sports">Sports commentator</option>
+              <option value="calm">Calm announcer</option>
+              <option value="dramatic">Dramatic trailer</option>
+              <option value="snarky">Light snark (family safe)</option>
+              <option value="robot">Robotic (for comparison)</option>
+            </select>
+
+            <label for="nameInput">Sample screen name</label>
+            <input id="nameInput" type="text" value="Albert" />
+
+            <div class="muted" style="margin-top: 10px">
+              Tip: some voices sound much better at rate
+              <code>0.95</code>–<code>1.05</code>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row3">
+          <div>
+            <label for="rate">Rate: <span id="rateVal">1.00</span></label>
+            <input
+              id="rate"
+              type="range"
+              min="0.5"
+              max="1.5"
+              value="1.0"
+              step="0.01"
+            />
+          </div>
+          <div>
+            <label for="pitch">Pitch: <span id="pitchVal">1.00</span></label>
+            <input
+              id="pitch"
+              type="range"
+              min="0.5"
+              max="2.0"
+              value="1.0"
+              step="0.01"
+            />
+          </div>
+          <div>
+            <label for="volume">Volume: <span id="volumeVal">1.00</span></label>
+            <input
+              id="volume"
+              type="range"
+              min="0"
+              max="1.0"
+              value="1.0"
+              step="0.01"
+            />
+          </div>
+        </div>
+
+        <div class="row" style="margin-top: 12px">
+          <div>
+            <label for="interruptMode">Playback mode</label>
+            <select id="interruptMode">
+              <option value="interrupt">
+                Interrupt (cancel current speech)
+              </option>
+              <option value="queue">Queue (let it finish)</option>
+            </select>
+            <div class="muted warn" style="margin-top: 8px">
+              “Queue” can pile up fast in a game — “Interrupt” usually feels
+              more natural.
+            </div>
+          </div>
+          <div>
+            <label for="text"
+              >Text to speak (auto-generated by style, editable)</label
+            >
+            <textarea id="text"></textarea>
+          </div>
+        </div>
+
+        <div class="btns">
+          <button class="primary" id="speakBtn">Speak</button>
+          <button id="stopBtn">Stop</button>
+          <button id="randomBtn">Random voice</button>
+          <button id="bestGuessBtn">Pick “best” English voice</button>
+          <button id="refreshBtn">Refresh voices</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="muted">
+          If voices look empty: Chrome sometimes delays loading voices. Click
+          <b>Refresh voices</b>, or wait 2–3 seconds.
+        </div>
+        <details style="margin-top: 10px">
+          <summary><b>Show all available voices</b></summary>
+          <pre
+            id="voiceList"
+            style="white-space: pre-wrap; margin-top: 10px"
+          ></pre>
+        </details>
+      </div>
+    </div>
+
+    <script>
+      const els = {
+        status: document.getElementById("status"),
+        voiceSelect: document.getElementById("voiceSelect"),
+        voiceMeta: document.getElementById("voiceMeta"),
+        voiceCount: document.getElementById("voiceCount"),
+        styleSelect: document.getElementById("styleSelect"),
+        nameInput: document.getElementById("nameInput"),
+        rate: document.getElementById("rate"),
+        pitch: document.getElementById("pitch"),
+        volume: document.getElementById("volume"),
+        rateVal: document.getElementById("rateVal"),
+        pitchVal: document.getElementById("pitchVal"),
+        volumeVal: document.getElementById("volumeVal"),
+        interruptMode: document.getElementById("interruptMode"),
+        text: document.getElementById("text"),
+        speakBtn: document.getElementById("speakBtn"),
+        stopBtn: document.getElementById("stopBtn"),
+        randomBtn: document.getElementById("randomBtn"),
+        bestGuessBtn: document.getElementById("bestGuessBtn"),
+        refreshBtn: document.getElementById("refreshBtn"),
+        voiceList: document.getElementById("voiceList"),
+      };
+
+      let voices = [];
+      let selectedVoice = null;
+
+      function styleText(style, name) {
+        const n = (name || "Player").trim() || "Player";
+        switch (style) {
+          case "gameshow":
+            return `${n} has entered the lobby! Big energy—let’s go!`;
+          case "sports":
+            return `And ${n} steps into the lobby—fans are buzzing already.`;
+          case "calm":
+            return `${n} has entered the lobby. Welcome.`;
+          case "dramatic":
+            return `${n} has entered the lobby. The game is about to change.`;
+          case "snarky":
+            return `${n} has entered the lobby. Try not to press the wrong button.`;
+          case "robot":
+            return `SCREEN NAME: ${n}. STATUS: ENTERED. LOBBY.`;
+          case "plain":
+          default:
+            return `${n} has entered the lobby.`;
+        }
+      }
+
+      function updateSlidersUI() {
+        els.rateVal.textContent = Number(els.rate.value).toFixed(2);
+        els.pitchVal.textContent = Number(els.pitch.value).toFixed(2);
+        els.volumeVal.textContent = Number(els.volume.value).toFixed(2);
+      }
+
+      function setStatus(text) {
+        els.status.textContent = text;
+      }
+
+      function refreshVoices() {
+        if (!("speechSynthesis" in window)) {
+          setStatus("speechSynthesis not supported");
+          els.speakBtn.disabled = true;
+          return;
+        }
+
+        voices = window.speechSynthesis.getVoices() || [];
+
+        els.voiceSelect.innerHTML = "";
+        for (let i = 0; i < voices.length; i++) {
+          const v = voices[i];
+          const opt = document.createElement("option");
+          opt.value = String(i);
+          opt.textContent = `${v.name} (${v.lang})${
+            v.default ? " — default" : ""
+          }`;
+          els.voiceSelect.appendChild(opt);
+        }
+
+        els.voiceCount.textContent = String(voices.length);
+
+        // Update listing
+        els.voiceList.textContent = voices
+          .map(
+            (v, idx) =>
+              `${idx}. ${v.name} | ${v.lang}${v.default ? " | default" : ""}`
+          )
+          .join("\n");
+
+        if (voices.length) {
+          // Keep current selection if possible
+          const idx = Number(els.voiceSelect.value);
+          const pick =
+            voices[idx] || voices.find((v) => v.default) || voices[0];
+          selectedVoice = pick;
+
+          // Set select to match
+          const selectedIdx = voices.indexOf(pick);
+          els.voiceSelect.value = String(selectedIdx);
+
+          els.voiceMeta.textContent = `${pick.name} (${pick.lang})${
+            pick.default ? " — default" : ""
+          }`;
+          setStatus("Voices loaded");
+        } else {
+          els.voiceMeta.textContent = "—";
+          setStatus("No voices yet (waiting…)");
+        }
+      }
+
+      function pickBestEnglishVoice() {
+        if (!voices.length) return;
+
+        // Heuristic: prefer more natural-sounding names
+        const preferred =
+          voices.find((v) => /Google.*(US|UK)|Google.*English/i.test(v.name)) ||
+          voices.find((v) => /Natural|Neural|Enhanced/i.test(v.name)) ||
+          voices.find((v) => v.lang === "en-US") ||
+          voices.find((v) => v.lang.startsWith("en-")) ||
+          voices[0];
+
+        selectedVoice = preferred;
+        els.voiceSelect.value = String(voices.indexOf(preferred));
+        els.voiceMeta.textContent = `${preferred.name} (${preferred.lang})${
+          preferred.default ? " — default" : ""
+        }`;
+      }
+
+      function speak() {
+        if (!("speechSynthesis" in window)) return;
+
+        const text = els.text.value.trim();
+        if (!text) return;
+
+        const mode = els.interruptMode.value;
+        if (mode === "interrupt") window.speechSynthesis.cancel();
+
+        const u = new SpeechSynthesisUtterance(text);
+        const idx = Number(els.voiceSelect.value);
+        selectedVoice = voices[idx] || selectedVoice;
+
+        if (selectedVoice) u.voice = selectedVoice;
+        u.rate = Number(els.rate.value);
+        u.pitch = Number(els.pitch.value);
+        u.volume = Number(els.volume.value);
+
+        window.speechSynthesis.speak(u);
+      }
+
+      function stop() {
+        if (!("speechSynthesis" in window)) return;
+        window.speechSynthesis.cancel();
+      }
+
+      function updateGeneratedText() {
+        const style = els.styleSelect.value;
+        const name = els.nameInput.value;
+        els.text.value = styleText(style, name);
+      }
+
+      // Event wiring
+      els.voiceSelect.addEventListener("change", () => {
+        const idx = Number(els.voiceSelect.value);
+        selectedVoice = voices[idx] || null;
+        if (selectedVoice) {
+          els.voiceMeta.textContent = `${selectedVoice.name} (${
+            selectedVoice.lang
+          })${selectedVoice.default ? " — default" : ""}`;
+        }
+      });
+
+      els.styleSelect.addEventListener("change", updateGeneratedText);
+      els.nameInput.addEventListener("input", updateGeneratedText);
+
+      els.rate.addEventListener("input", updateSlidersUI);
+      els.pitch.addEventListener("input", updateSlidersUI);
+      els.volume.addEventListener("input", updateSlidersUI);
+
+      els.speakBtn.addEventListener("click", speak);
+      els.stopBtn.addEventListener("click", stop);
+
+      els.randomBtn.addEventListener("click", () => {
+        if (!voices.length) return;
+        const idx = Math.floor(Math.random() * voices.length);
+        els.voiceSelect.value = String(idx);
+        selectedVoice = voices[idx];
+        els.voiceMeta.textContent = `${selectedVoice.name} (${
+          selectedVoice.lang
+        })${selectedVoice.default ? " — default" : ""}`;
+        speak();
+      });
+
+      els.bestGuessBtn.addEventListener("click", () => {
+        pickBestEnglishVoice();
+        speak();
+      });
+
+      els.refreshBtn.addEventListener("click", refreshVoices);
+
+      // Init
+      updateSlidersUI();
+      updateGeneratedText();
+
+      // Voices are often loaded asynchronously
+      window.speechSynthesis.onvoiceschanged = () => {
+        refreshVoices();
+      };
+
+      // Initial attempt
+      setTimeout(refreshVoices, 0);
+      setTimeout(refreshVoices, 800);
+      setTimeout(refreshVoices, 2000);
+    </script>
+  </body>
+</html>

@@ -1,10 +1,12 @@
 // server/src/index.js
+import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import OpenAI from "openai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +20,181 @@ const httpServer = createServer(app);
 const io = new Server(httpServer);
 
 const PORT = process.env.PORT || 3000;
+
+// ----------------------
+// OpenAI smoke test (safe / minimal)
+// ----------------------
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+async function runOpenAiSmokeTest() {
+  if (!openai) {
+    return {
+      ok: false,
+      error: "OPENAI_API_KEY is not set on this server",
+    };
+  }
+
+  try {
+    const resp = await openai.responses.create({
+      model: "gpt-5-mini",
+      input: "Reply with exactly: SMOKE TEST OK",
+    });
+
+    // The SDK provides output_text as a convenience aggregator. :contentReference[oaicite:1]{index=1}
+    const text = String(resp.output_text || "").trim();
+
+    return {
+      ok: true,
+      text,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err?.message || String(err),
+      // Sometimes useful when debugging quota/401/429 etc
+      status: err?.status,
+      code: err?.code,
+      type: err?.type,
+    };
+  }
+}
+
+// ----------------------
+// "Name twin" lobby intro (v0.1)
+// ----------------------
+
+// Per-room cache so we don't re-query for the same displayName repeatedly
+// room.nameTwinCache: { [displayNameLower]: { personName, fact, sourceHint } }
+
+function safeNameForLookup(displayName) {
+  // Keep only letters/spaces/hyphens/apostrophes; trim; cap length
+  return String(displayName || "")
+    .replace(/[^\p{L}\s'-]/gu, "")
+    .trim()
+    .slice(0, 40);
+}
+
+async function generateNameTwinFact(displayName) {
+  if (!openai) {
+    return {
+      ok: false,
+      personName: null,
+      fact: "AI key not configured on server.",
+      sourceHint: "OPENAI_API_KEY missing",
+    };
+  }
+
+  const name = safeNameForLookup(displayName);
+  if (!name) {
+    return {
+      ok: false,
+      personName: null,
+      fact: "No name provided.",
+      sourceHint: "empty name",
+    };
+  }
+
+  try {
+    const resp = await openai.responses.create({
+      model: "gpt-5-mini",
+      input: `
+You are helping run a family-friendly party game.
+
+Task:
+Given the contestant name: "${name}"
+
+Pick ONE widely-known public figure (real person) who plausibly shares that name
+(first name, last name, or full name). If the name is uncommon and you are not confident,
+do NOT guess a person—use "No clear match" and provide a fun, accurate, non-person fact
+about the name itself (meaning, origin, notable usage) instead.
+
+Output MUST be valid JSON with exactly these keys:
+{
+  "personName": string,       // "No clear match" if unsure
+  "fact": string,             // one short sentence, family-safe
+  "sourceHint": string        // e.g. "actor", "musician", "historical figure", or "name origin"
+}
+
+Rules:
+- One sentence for fact (max 20 words).
+- No politics, no insults, no personal data.
+- If unsure, choose the safe fallback.
+`.trim(),
+    });
+
+    // Parse JSON safely
+    const raw = String(resp.output_text || "").trim();
+    let data = null;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      // fallback if model didn't comply perfectly
+      data = {
+        personName: "No clear match",
+        fact: raw.slice(0, 120),
+        sourceHint: "fallback",
+      };
+    }
+
+    const personName = String(data.personName || "No clear match").slice(0, 80);
+    const fact = String(data.fact || "").slice(0, 160);
+    const sourceHint = String(data.sourceHint || "").slice(0, 60);
+
+    return { ok: true, personName, fact, sourceHint };
+  } catch (err) {
+    return {
+      ok: false,
+      personName: null,
+      fact: "Couldn’t fetch a name twin fact right now.",
+      sourceHint: err?.message || String(err),
+    };
+  }
+}
+
+async function maybeSendLobbyNameTwin(roomCode, room, playerId, displayName) {
+  try {
+    // Only run this in the lobby
+    if (!room || room.gameStatus !== "lobby") return;
+
+    room.nameTwinCache = room.nameTwinCache || Object.create(null);
+
+    const key = String(displayName || "")
+      .trim()
+      .toLowerCase();
+    if (!key) return;
+
+    // Cached?
+    let payload = room.nameTwinCache[key];
+    if (!payload) {
+      const result = await generateNameTwinFact(displayName);
+      payload = {
+        playerId,
+        displayName,
+        personName: result.personName || "No clear match",
+        fact: result.fact || "",
+        sourceHint: result.sourceHint || "",
+        ok: !!result.ok,
+        at: Date.now(),
+      };
+      room.nameTwinCache[key] = payload;
+    } else {
+      // Update playerId/displayName for this session
+      payload = { ...payload, playerId, displayName, at: Date.now() };
+    }
+
+    // Send to that phone only
+    io.to(playerId).emit("server:lobby_name_twin", payload);
+
+    // Send to host only
+    if (room.hostSocketId) {
+      io.to(room.hostSocketId).emit("server:lobby_name_twin", payload);
+    }
+  } catch (e) {
+    console.warn("Name twin failed:", e?.message || e);
+  }
+}
 
 // Jackbox-style reconnect window
 const PLAYER_REJOIN_GRACE_MS = 60_000; // 60s
@@ -208,6 +385,13 @@ app.get("/host", (req, res) =>
 app.get("/phone", (req, res) =>
   res.sendFile(path.join(webRoot, "phone", "index.html"))
 );
+
+app.get("/healthz", (req, res) => res.status(200).send("ok"));
+
+app.get("/ai-smoke", async (req, res) => {
+  const result = await runOpenAiSmokeTest();
+  res.status(result.ok ? 200 : 500).json(result);
+});
 
 // ----------------------
 // Content loading
@@ -1270,6 +1454,7 @@ io.on("connection", (socket) => {
           questionEndsAt: null,
         },
         final: null,
+        nameTwinCache: Object.create(null),
       };
 
       socket.join(roomCode);
@@ -1436,6 +1621,8 @@ io.on("connection", (socket) => {
     broadcastState(code);
 
     console.log(`Player joined ${code}: ${name} (${playerId})`);
+    // Fire-and-forget: name twin intro (lobby only)
+    maybeSendLobbyNameTwin(code, room, playerId, name);
   });
 
   // Phone rejoin (after refresh) using token
@@ -1521,6 +1708,13 @@ io.on("connection", (socket) => {
 
     console.log(
       `Player rejoined ${code}: ${room.players[newPlayerId].displayName} (${newPlayerId})`
+    );
+    // Fire-and-forget: name twin intro (lobby only)
+    maybeSendLobbyNameTwin(
+      code,
+      room,
+      newPlayerId,
+      room.players[newPlayerId].displayName
     );
   });
 
